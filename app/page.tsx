@@ -1,35 +1,49 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Check, X, Loader2, Brain, AlertCircle, TrendingUp, Zap, Swords, Award, Fingerprint } from 'lucide-react';
+import { ArrowRight, Check, X, Loader2, Brain, AlertCircle, TrendingUp, Zap, Fingerprint } from 'lucide-react';
 import { joinWaitlist } from '@/app/actions/waitlist';
+import { trackVisit, trackQuizResult } from '@/app/actions/analytics';
 import { Logo } from '@/app/components/shared';
 import confetti from 'canvas-confetti';
 
-// --- QUESTIONS ---
+// --- GENIUS LEVEL LOGIC QUESTIONS (5 Total) ---
 const QUESTIONS = [
-  { q: "Which is heavier: A kilogram of steel or a kilogram of feathers?", options: ["Steel", "Feathers", "They are equal", "Depends on gravity"], a: 2 },
-  { q: "Some months have 31 days, others have 30. How many have 28 days?", options: ["1", "2", "6", "12 (All of them)"], a: 3 },
-  { q: "Complete the pattern: 3, 6, 9, 12, ...", options: ["13", "14", "15", "16"], a: 2 },
-  { q: "If an electric train is moving North at 100mph and the wind is blowing West at 10mph, which way does the smoke blow?", options: ["South", "South-East", "West", "There is no smoke"], a: 3 },
-  { q: "Your mother's brother's only brother-in-law is asleep on your couch. Who is asleep?", options: ["Your Uncle", "Your Father", "Your Brother", "Your Cousin"], a: 1 },
-  { q: "Which word does not belong?", options: ["Guitar", "Violin", "Flute", "Cello"], a: 2 },
-  { q: "If you are in a race and you overtake the person in second place, what place are you in?", options: ["First", "Second", "Third", "Last"], a: 1 },
-  { q: "Which of these is a FACT, not an opinion?", options: ["Summer is the best season", "Water boils at 100°C at sea level", "Pizza tastes better than Pasta", "Blue is a calming color"], a: 1 },
-  { q: "What comes once in a minute, twice in a moment, but never in a thousand years?", options: ["The letter M", "Time", "Oxygen", "Chance"], a: 0 },
-  { q: "Is this statement true? 'This statement is false.'", options: ["Yes", "No", "It's a paradox", "Maybe"], a: 2 }
+  { 
+    q: "A bat and a ball cost $1.10 in total. The bat costs $1.00 more than the ball. How much does the ball cost?", 
+    options: ["$0.10", "$0.05", "$0.01", "$0.50"], 
+    a: 1 
+  },
+  { 
+    q: "If it takes 5 machines 5 minutes to make 5 widgets, how long would it take 100 machines to make 100 widgets?", 
+    options: ["100 minutes", "5 minutes", "1 hour", "20 minutes"], 
+    a: 1 
+  },
+  { 
+    q: "In a lake, there is a patch of lily pads. Every day, the patch doubles in size. If it takes 48 days to cover the entire lake, how long would it take to cover half the lake?", 
+    options: ["24 days", "47 days", "40 days", "12 days"], 
+    a: 1 
+  },
+  { 
+    q: "You are running a race and you overtake the person in second place. What position are you in?", 
+    options: ["First", "Second", "Third", "Last"], 
+    a: 1 
+  },
+  { 
+    q: "Mary's father has five daughters: 1. Nana, 2. Nene, 3. Nini, 4. Nono. What is the name of the fifth daughter?", 
+    options: ["Nunu", "Nina", "Mary", "None of the above"], 
+    a: 2 
+  }
 ];
 
 type ViewState = 'intro' | 'quiz' | 'result_pass' | 'result_fail' | 'joined';
 
 const getRank = (score: number) => {
-  if (score === 10) return { percent: "TOP 0.1%", label: "GENIUS", color: "text-[#F04E23]", border: "border-[#F04E23]" };
-  if (score === 9)  return { percent: "TOP 1%", label: "ELITE STRATEGIST", color: "text-emerald-400", border: "border-emerald-400" };
-  if (score === 8)  return { percent: "TOP 5%", label: "EXCEPTIONAL LOGIC", color: "text-blue-400", border: "border-blue-400" };
-  if (score === 7)  return { percent: "TOP 10%", label: "SUPERIOR INTELLECT", color: "text-purple-400", border: "border-purple-400" };
-  if (score === 6)  return { percent: "TOP 25%", label: "ABOVE AVERAGE", color: "text-yellow-400", border: "border-yellow-400" };
-  return { percent: "BOTTOM 50%", label: "AVERAGE", color: "text-gray-400", border: "border-gray-400" };
+  if (score === 5) return { percent: "TOP 0.1%", label: "GENIUS", color: "text-[#F04E23]" };
+  if (score === 4) return { percent: "TOP 5%", label: "STRATEGIST", color: "text-emerald-400" };
+  if (score === 3) return { percent: "TOP 25%", label: "ABOVE AVERAGE", color: "text-blue-400" };
+  return { percent: "BOTTOM 50%", label: "NPC", color: "text-gray-400" };
 };
 
 export default function WaitlistPage() {
@@ -40,26 +54,58 @@ export default function WaitlistPage() {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [msg, setMsg] = useState('');
+  
+  // Ref to store the unique Visitor ID (persists across renders)
+  const visitorIdRef = useRef<string>('');
 
   const rank = getRank(score);
+
+  // --- ANALYTICS: GENERATE ID & TRACK VISIT ---
+  useEffect(() => {
+    // 1. Generate a unique ID for this session
+    let vId = '';
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+       vId = crypto.randomUUID();
+    } else {
+       // Fallback for older browsers
+       vId = Math.random().toString(36).substring(2, 15);
+    }
+    
+    // 2. Save it to ref so we can use it later
+    visitorIdRef.current = vId;
+
+    // 3. Send to server
+    trackVisit(vId);
+  }, []);
 
   // --- QUIZ LOGIC ---
   const handleAnswer = (index: number) => {
     setSelectedOpt(index);
     setTimeout(() => {
       const isCorrect = index === QUESTIONS[currentQ].a;
-      if (isCorrect) setScore(s => s + 1);
+      
+      const newScore = isCorrect ? score + 1 : score;
+      if (isCorrect) setScore(newScore);
+
       if (currentQ < QUESTIONS.length - 1) {
         setCurrentQ(prev => prev + 1);
         setSelectedOpt(null);
       } else {
-        finishQuiz(score + (isCorrect ? 1 : 0));
+        finishQuiz(newScore);
       }
     }, 400); 
   };
 
-  const finishQuiz = (finalScore: number) => {
-    if (finalScore >= 6) {
+  const finishQuiz = async (finalScore: number) => {
+    const passed = finalScore >= 3;
+    
+    // ANALYTICS: Track result linked to the Visitor ID
+    // We use the ID from the ref we created on mount
+    if (visitorIdRef.current) {
+        await trackQuizResult(visitorIdRef.current, finalScore, passed);
+    }
+
+    if (passed) {
       setView('result_pass');
       confetti({ particleCount: 80, spread: 70, origin: { y: 0.7 }, colors: ['#F04E23'] });
     } else {
@@ -74,7 +120,6 @@ export default function WaitlistPage() {
     setView('quiz');
   };
 
-  // --- SUPABASE JOIN LOGIC ---
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('loading');
@@ -113,7 +158,10 @@ export default function WaitlistPage() {
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
                 2,408 Waiting in Arena
               </div>
-              <h1 className="text-5xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-6 drop-shadow-2xl">PROVE THEM <br/><span className="text-transparent bg-clip-text bg-gradient-to-b from-[#F04E23] to-[#b03210]">WRONG.</span></h1>
+              <h1 className="text-5xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-6 drop-shadow-2xl">
+                <span className="whitespace-nowrap">PROVE THEM</span><br/>
+                <span className="text-transparent bg-clip-text bg-gradient-to-b from-[#F04E23] to-[#b03210]">WRONG.</span>
+              </h1>
               <p className="text-gray-400 text-lg mb-12 font-medium max-w-md">The UFC for Intellectuals. Win arguments, earn Elo, and silence the noise. <span className="text-white">Pass the logic test to enter.</span></p>
               <button onClick={() => setView('quiz')} className="h-14 px-10 bg-white text-black rounded-full font-bold text-sm uppercase tracking-widest hover:bg-[#F04E23] hover:text-white hover:scale-105 transition-all flex items-center gap-3 group shadow-[0_0_20px_rgba(255,255,255,0.2)]">
                 <Brain size={20} /> Begin Assessment <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
@@ -121,12 +169,12 @@ export default function WaitlistPage() {
             </motion.div>
           )}
 
-          {/* 2. QUIZ VIEW */}
+          {/* 2. QUIZ VIEW (5 Qs) */}
           {view === 'quiz' && (
             <motion.div key="quiz" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} className="w-full bg-[#0F0F0F] border border-white/10 p-8 rounded-3xl shadow-2xl relative">
               <div className="flex justify-between items-center mb-8">
-                <span className="text-xs font-mono text-[#F04E23] uppercase tracking-widest">Logic Test {currentQ + 1}/10</span>
-                <div className="h-1 w-32 bg-gray-800 rounded-full overflow-hidden"><div className="h-full bg-[#F04E23] transition-all duration-500 ease-out" style={{ width: `${((currentQ + 1) / 10) * 100}%` }}></div></div>
+                <span className="text-xs font-mono text-[#F04E23] uppercase tracking-widest">Logic Test {currentQ + 1}/5</span>
+                <div className="h-1 w-32 bg-gray-800 rounded-full overflow-hidden"><div className="h-full bg-[#F04E23] transition-all duration-500 ease-out" style={{ width: `${((currentQ + 1) / 5) * 100}%` }}></div></div>
               </div>
               <h2 className="text-2xl font-bold mb-8 leading-snug">{QUESTIONS[currentQ].q}</h2>
               <div className="space-y-3">
@@ -145,31 +193,34 @@ export default function WaitlistPage() {
             <motion.div key="fail" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-md bg-[#0F0F0F] p-8 rounded-3xl border border-white/10">
               <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20"><X size={40} className="text-red-500" /></div>
               <h2 className="text-3xl font-black uppercase tracking-tight mb-2">Access Denied</h2>
-              <p className="text-gray-400 mb-8">You scored {score}/10. The Arena requires a minimum score of 6/10.<br/>Your logic is too fragile for Verdict.</p>
+              <p className="text-gray-400 mb-8">You scored {score}/5. The Arena requires a minimum score of 3/5.<br/>Your logic is too fragile for Verdict.</p>
               <button onClick={restartQuiz} className="w-full h-12 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm uppercase tracking-widest transition-all">Retake Exam</button>
+              
+              {/* Added: "Join Anyway" secondary button to capture non-genius leads */}
+               <div className="mt-4 pt-4 border-t border-white/5">
+                 <p className="text-xs text-gray-500 mb-2">Think this was a mistake?</p>
+                 <button onClick={() => setView('result_pass')} className="text-xs text-[#F04E23] hover:text-white underline decoration-dotted underline-offset-4 transition-colors">
+                    Join waitlist as Observer
+                 </button>
+               </div>
             </motion.div>
           )}
 
-          {/* 4. RESULT: PASS (THE LQ CARD + INPUT) */}
+          {/* 4. RESULT: PASS */}
           {view === 'result_pass' && (
             <motion.div key="pass" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md text-center">
-              
-              {/* RANK BADGE */}
               <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 200, delay: 0.1 }} className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full mb-6">
                 <TrendingUp size={16} className={rank.color} />
                 <span className={`text-sm font-black tracking-widest ${rank.color}`}>{rank.percent}</span>
               </motion.div>
-              
               <h2 className={`text-4xl md:text-5xl font-black uppercase tracking-tighter mb-8 leading-none ${rank.color}`}>{rank.label}</h2>
               
-              {/* --- THE LQ BOOST CARD WITH INPUT --- */}
-              <motion.div 
+               <motion.div 
                 initial={{ opacity: 0, y: 10 }} 
                 animate={{ opacity: 1, y: 0 }} 
                 transition={{ delay: 0.2 }} 
                 className="bg-[#111] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-[#F04E23]/30 transition-all text-center"
               >
-                 {/* Decorative Icon */}
                  <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><Zap size={80} /></div>
                  
                  <div className="flex items-center justify-center gap-2 mb-4">
@@ -182,7 +233,6 @@ export default function WaitlistPage() {
                    <br/>Unlock your potential below.
                  </p>
 
-                 {/* INPUT FORM INTEGRATED HERE */}
                  <div className="relative group text-left">
                     <form onSubmit={handleJoin}>
                         <div className="relative">
@@ -214,24 +264,30 @@ export default function WaitlistPage() {
                     )}
                  </div>
               </motion.div>
-
             </motion.div>
           )}
 
-          {/* 5. JOINED (MATTE BLACK FOUNDER CARD) */}
+          {/* 5. JOINED */}
           {view === 'joined' && (
             <motion.div key="joined" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.5, ease: "easeOut" }} className="w-full max-w-sm">
-                <div className="bg-[#0A0A0A] rounded-2xl p-8 border border-[#333] shadow-2xl relative overflow-hidden flex flex-col justify-between aspect-[1.58/1]">
+                <div className="bg-[#0A0A0A] rounded-2xl p-8 border border-[#333] shadow-2xl relative overflow-hidden flex flex-col justify-between aspect-[1.58/1] mb-8">
                     <div className="flex justify-between items-start z-10"><Logo size="sm" /> <span className="font-mono text-[10px] text-[#F04E23] tracking-widest border border-[#F04E23] px-2 py-1 rounded">FOUNDING MEMBER</span></div>
                     <div className="z-10 mt-6"><p className="text-[10px] text-gray-500 font-mono uppercase tracking-widest mb-1">Assigned Rank</p><h3 className={`text-3xl font-black uppercase tracking-tighter ${rank.color}`}>{rank.label}</h3></div>
                     <div className="flex justify-between items-end z-10 mt-auto pt-6"><div><p className="text-[10px] text-gray-500 font-mono uppercase tracking-widest mb-1">Founder ID</p><p className="text-lg font-mono text-white tracking-widest">#0002409</p></div><Fingerprint className="text-[#222]" size={48} /></div>
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none"></div>
                     <div className="absolute top-[-50%] right-[-50%] w-full h-full bg-gradient-to-b from-[#F04E23]/10 to-transparent blur-3xl pointer-events-none rounded-full"></div>
                 </div>
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="text-center mt-8 space-y-2">
-                    <h3 className="text-xl font-bold text-white flex items-center justify-center gap-2"><Check className="text-green-500"/> Rank Secured.</h3>
-                    <p className="text-gray-500 text-sm">You are officially on the list. We will email you when the arena opens.</p>
-                </motion.div>
+
+                <button 
+                  onClick={() => {
+                    const text = `I just secured my spot as a Founding Member of Verdict.\n\nRank: ${rank.label} (${score}/5)\n\nCan you pass the entrance exam?`;
+                    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=https://getverdict.in`, '_blank');
+                  }}
+                  className="w-full py-3 bg-[#1DA1F2] hover:bg-[#1a91da] rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all"
+                >
+                  <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+                  Challenge Twitter
+                </button>
             </motion.div>
           )}
 
