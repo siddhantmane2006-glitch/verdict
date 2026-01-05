@@ -129,6 +129,12 @@ export default function WaitlistPage() {
     formData.append('score', score.toString());
     formData.append('rank_label', rank.label);
 
+    // --- NEW: LINK THE VISITOR ID ---
+    // This connects the anonymous quiz score to the signed-up email
+    if (visitorIdRef.current) {
+        formData.append('visitor_id', visitorIdRef.current);
+    }
+
     const result = await joinWaitlist(formData);
 
     if (result.success) {

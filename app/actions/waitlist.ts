@@ -1,11 +1,15 @@
 'use server';
 
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/app/utils/supabase/server';
 
 export async function joinWaitlist(formData: FormData) {
+  // 1. Initialize the correct Server Client
+  const supabase = await createClient();
+
   const email = formData.get("email") as string;
   const score = formData.get("score") as string;
   const rank_label = formData.get("rank_label") as string;
+  const visitor_id = formData.get("visitor_id") as string; // <--- Capture the ID
   
   if (!email || !email.includes("@")) {
     return { success: false, message: "Invalid email address." };
@@ -18,7 +22,8 @@ export async function joinWaitlist(formData: FormData) {
         { 
           email: email, 
           score: parseInt(score), 
-          rank_label: rank_label 
+          rank_label: rank_label,
+          visitor_id: visitor_id // <--- Save it to the DB
         }
       ]);
 
