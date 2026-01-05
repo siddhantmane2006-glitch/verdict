@@ -3,22 +3,34 @@
 import React from 'react';
 
 export interface LogoProps {
-  size?: 'md' | 'lg';
+  // FIXED: Added 'sm' to the allowed sizes
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
 
-export const Logo: React.FC<LogoProps> = ({ size = 'md', className = '' }) => (
-  <div className={`flex items-center gap-2 group cursor-pointer select-none ${className}`}>
-    <div className="relative px-2">
-      {/* Added transition-all for smoother hover */}
-      <div className="absolute inset-0 bg-[#F04E23] transform -skew-x-12 -rotate-2 rounded-sm transition-all duration-300 group-hover:rotate-0 group-hover:skew-x-0 group-hover:scale-105"></div>
-      <span className={`relative font-sans font-bold ${size === 'lg' ? 'text-2xl' : 'text-xl'} tracking-tight text-white z-10`}>Verdict.</span>
+export const Logo: React.FC<LogoProps> = ({ size = 'md', className = '' }) => {
+  
+  // Logic to handle the 3 sizes for your specific design
+  const textSize = {
+    sm: 'text-base', // Smaller for the Founders Card
+    md: 'text-xl',   // Your default
+    lg: 'text-2xl'   // Large
+  }[size];
+
+  return (
+    <div className={`flex items-center gap-2 group cursor-pointer select-none ${className}`}>
+      <div className="relative px-2">
+        {/* Added transition-all for smoother hover */}
+        <div className="absolute inset-0 bg-[#F04E23] transform -skew-x-12 -rotate-2 rounded-sm transition-all duration-300 group-hover:rotate-0 group-hover:skew-x-0 group-hover:scale-105"></div>
+        <span className={`relative font-sans font-bold ${textSize} tracking-tight text-white z-10`}>
+          Verdict.
+        </span>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export const AppFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    
   <div className="min-h-[100dvh] w-full flex items-center justify-center bg-[#F9F9F7] md:bg-[#e1e1e1] font-sans text-[#1A1A1A] p-0 md:p-4 overflow-hidden">
     <style jsx global>{`
       @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@700&display=swap');
