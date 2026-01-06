@@ -307,6 +307,7 @@ export default function WaitlistPage() {
           )}
 
         </AnimatePresence>
+        
       </main>
     </div>
   );

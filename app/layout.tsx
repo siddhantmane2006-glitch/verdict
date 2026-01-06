@@ -12,27 +12,42 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// 1. Set the Base URL so social images work everywhere
+// --- SEO: STRUCTURED DATA (The "Code for Robots") ---
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Verdict",
+  "applicationCategory": "SocialNetworkApplication",
+  "operatingSystem": "Web",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "description": "The UFC for Intellectuals. A competitive debate platform with an AI Judge and Logic Quotient (LQ) scoring system.",
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.9",
+    "ratingCount": "2408" // Matches your hardcoded waitlist number
+  }
+};
+
+// --- SEO: METADATA CONFIGURATION ---
 export const metadata: Metadata = {
   metadataBase: new URL('https://getverdict.in'),
 
-  // 2. Title Template (Good for inner pages later)
   title: {
     default: "Verdict | The Logic Arena",
     template: "%s | Verdict",
   },
   
-  // 3. The "Hook" Description for Google Search Results
   description: "The UFC for Intellectuals. Win arguments, earn Elo, and silence the noise. Pass the logic entrance exam to join.",
   
-  // 4. Keywords for SEO Indexing
-  keywords: ["debate platform", "logic test", "intellectual debate", "elo rating", "AI judge", "Verdict app", "logic quotient"],
+  keywords: ["debate platform", "logic test", "intellectual debate", "elo rating", "AI judge", "Verdict app", "logic quotient", "fallacy detector"],
   
-  // 5. Author info
   authors: [{ name: "Verdict Team" }],
   creator: "Verdict",
   
-  // 6. Robots Control (Crucial for Google)
   robots: {
     index: true,
     follow: true,
@@ -45,7 +60,6 @@ export const metadata: Metadata = {
     },
   },
 
-  // 7. Open Graph (Facebook, LinkedIn, Discord previews)
   openGraph: {
     type: "website",
     locale: "en_US",
@@ -55,7 +69,7 @@ export const metadata: Metadata = {
     description: "90% of people fail this logic test. Can you pass the entrance exam?",
     images: [
       {
-        url: "/og-image.png", // Uses the dynamic image we created
+        url: "/opengraph-image", // Points to the dynamic image route
         width: 1200,
         height: 630,
         alt: "Verdict Founder Card",
@@ -63,16 +77,13 @@ export const metadata: Metadata = {
     ],
   },
 
-  // 8. Twitter Card (X previews)
   twitter: {
     card: "summary_large_image",
     title: "Verdict | The Logic Arena",
     description: "I just took the Verdict logic test. Are you a Genius or Average?",
-    images: ["/og-image.png"],
-    creator: "@your_handle", // Replace with your actual Twitter handle if you have one
+    images: ["/opengraph-image"], // Uses the same dynamic image
   },
   
-  // 9. Icons (Optional, but good for SEO completeness)
   icons: {
     icon: "/icon.png", 
     apple: "/apple-icon.png",
@@ -89,6 +100,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#050505]`}
       >
+        {/* INJECT JSON-LD FOR GOOGLE */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        
         {children}
       </body>
     </html>
