@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Check, X, Loader2, Brain, AlertCircle, TrendingUp, Zap, Fingerprint } from 'lucide-react';
+import { ArrowRight, Check, X, Loader2, Brain, AlertCircle, TrendingUp, Zap, Fingerprint, Lock } from 'lucide-react';
 import { joinWaitlist } from '@/app/actions/waitlist';
 import { trackVisit, trackQuizResult } from '@/app/actions/analytics';
 import { Logo } from '@/app/components/shared';
@@ -37,7 +37,8 @@ const QUESTIONS = [
   }
 ];
 
-type ViewState = 'intro' | 'quiz' | 'result_pass' | 'result_fail' | 'joined';
+// Added 'collect_email' to the state types
+type ViewState = 'intro' | 'quiz' | 'collect_email' | 'result_pass' | 'result_fail' | 'joined';
 
 const getRank = (score: number) => {
   if (score === 5) return { percent: "TOP 0.1%", label: "GENIUS", color: "text-[#F04E23]" };
@@ -55,26 +56,18 @@ export default function WaitlistPage() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [msg, setMsg] = useState('');
   
-  // Ref to store the unique Visitor ID (persists across renders)
   const visitorIdRef = useRef<string>('');
-
   const rank = getRank(score);
 
   // --- ANALYTICS: GENERATE ID & TRACK VISIT ---
   useEffect(() => {
-    // 1. Generate a unique ID for this session
     let vId = '';
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
        vId = crypto.randomUUID();
     } else {
-       // Fallback for older browsers
        vId = Math.random().toString(36).substring(2, 15);
     }
-    
-    // 2. Save it to ref so we can use it later
     visitorIdRef.current = vId;
-
-    // 3. Send to server
     trackVisit(vId);
   }, []);
 
@@ -91,46 +84,31 @@ export default function WaitlistPage() {
         setCurrentQ(prev => prev + 1);
         setSelectedOpt(null);
       } else {
-        finishQuiz(newScore);
+        // --- CHANGE: Instead of showing results, go to Email Gate ---
+        setView('collect_email');
       }
     }, 400); 
   };
 
-  const finishQuiz = async (finalScore: number) => {
-    const passed = finalScore >= 3;
-    
-    // ANALYTICS: Track result linked to the Visitor ID
-    // We use the ID from the ref we created on mount
-    if (visitorIdRef.current) {
-        await trackQuizResult(visitorIdRef.current, finalScore, passed);
-    }
-
-    if (passed) {
-      setView('result_pass');
-      confetti({ particleCount: 80, spread: 70, origin: { y: 0.7 }, colors: ['#F04E23'] });
-    } else {
-      setView('result_fail');
-    }
-  };
-
+  // --- RESTART LOGIC ---
   const restartQuiz = () => {
     setCurrentQ(0);
     setScore(0);
     setSelectedOpt(null);
+    setEmail(''); // Reset email if they want to try again from scratch
     setView('quiz');
   };
 
-  const handleJoin = async (e: React.FormEvent) => {
+  // --- FINAL SUBMISSION (Triggered by Email Form) ---
+  const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('loading');
     
+    // 1. Submit to Database
     const formData = new FormData();
     formData.append('email', email);
     formData.append('score', score.toString());
     formData.append('rank_label', rank.label);
-
-    // --- NEW: LINK THE VISITOR ID ---
-    // This connects the anonymous quiz score to the signed-up email
     if (visitorIdRef.current) {
         formData.append('visitor_id', visitorIdRef.current);
     }
@@ -139,8 +117,23 @@ export default function WaitlistPage() {
 
     if (result.success) {
       setStatus('success');
-      setView('joined');
-      confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, colors: ['#F04E23', '#ffffff'] });
+      
+      // 2. Determine Pass/Fail
+      const passed = score >= 3;
+
+      // 3. Track Analytics (Now that we have the lead)
+      if (visitorIdRef.current) {
+         await trackQuizResult(visitorIdRef.current, score, passed);
+      }
+
+      // 4. Show the Verdict
+      if (passed) {
+        setView('result_pass');
+        confetti({ particleCount: 80, spread: 70, origin: { y: 0.7 }, colors: ['#F04E23'] });
+      } else {
+        setView('result_fail');
+      }
+
     } else {
       setStatus('error');
       setMsg(result.message);
@@ -175,7 +168,7 @@ export default function WaitlistPage() {
             </motion.div>
           )}
 
-          {/* 2. QUIZ VIEW (5 Qs) */}
+          {/* 2. QUIZ VIEW */}
           {view === 'quiz' && (
             <motion.div key="quiz" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} className="w-full bg-[#0F0F0F] border border-white/10 p-8 rounded-3xl shadow-2xl relative">
               <div className="flex justify-between items-center mb-8">
@@ -194,7 +187,47 @@ export default function WaitlistPage() {
             </motion.div>
           )}
 
-          {/* 3. RESULT: FAIL */}
+          {/* 3. NEW: EMAIL GATE (Between Quiz and Result) */}
+          {view === 'collect_email' && (
+             <motion.div key="collect" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full max-w-md bg-[#0F0F0F] border border-white/10 p-8 rounded-3xl shadow-2xl text-center">
+               
+               <div className="w-16 h-16 bg-[#F04E23]/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-[#F04E23]/20">
+                 <Lock className="text-[#F04E23]" size={32} />
+               </div>
+               
+               <h2 className="text-2xl font-black uppercase tracking-tight mb-2 text-white">Assessment Complete</h2>
+               <p className="text-gray-400 mb-8 font-medium">Enter your email to unlock your <span className="text-white font-bold">Logic Quotient</span> and see if you passed.</p>
+               
+               <form onSubmit={handleFinalSubmit} className="space-y-4">
+                 <div className="relative text-left">
+                   <input 
+                     type="email" 
+                     required
+                     placeholder="name@company.com"
+                     value={email}
+                     onChange={(e) => setEmail(e.target.value)}
+                     disabled={status === 'loading'}
+                     className="w-full h-14 bg-[#0A0A0A] border border-white/10 rounded-xl px-5 text-base outline-none focus:border-[#F04E23] focus:ring-1 focus:ring-[#F04E23] transition-all placeholder:text-gray-600"
+                   />
+                 </div>
+                 <button 
+                   type="submit"
+                   disabled={status === 'loading' || !email}
+                   className="w-full h-14 bg-white text-black rounded-xl font-bold text-sm uppercase tracking-widest hover:bg-[#F04E23] hover:text-white transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                 >
+                   {status === 'loading' ? <Loader2 className="animate-spin" /> : <>Reveal Results <ArrowRight size={18}/></>}
+                 </button>
+               </form>
+
+               {status === 'error' && (
+                 <p className="text-red-500 text-xs mt-4 flex items-center justify-center gap-2">
+                   <AlertCircle size={14}/> {msg}
+                 </p>
+               )}
+             </motion.div>
+          )}
+
+          {/* 4. RESULT: FAIL (Email already captured) */}
           {view === 'result_fail' && (
             <motion.div key="fail" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-md bg-[#0F0F0F] p-8 rounded-3xl border border-white/10">
               <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20"><X size={40} className="text-red-500" /></div>
@@ -202,24 +235,23 @@ export default function WaitlistPage() {
               <p className="text-gray-400 mb-8">You scored {score}/5. The Arena requires a minimum score of 3/5.<br/>Your logic is too fragile for Verdict.</p>
               <button onClick={restartQuiz} className="w-full h-12 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm uppercase tracking-widest transition-all">Retake Exam</button>
               
-              {/* Added: "Join Anyway" secondary button to capture non-genius leads */}
                <div className="mt-4 pt-4 border-t border-white/5">
-                 <p className="text-xs text-gray-500 mb-2">Think this was a mistake?</p>
+                 <p className="text-xs text-gray-500 mb-2">Already joined?</p>
                  <button onClick={() => setView('result_pass')} className="text-xs text-[#F04E23] hover:text-white underline decoration-dotted underline-offset-4 transition-colors">
-                    Join waitlist as Observer
+                    View status
                  </button>
                </div>
             </motion.div>
           )}
 
-          {/* 4. RESULT: PASS */}
+        {/* 5. RESULT: PASS */}
           {view === 'result_pass' && (
             <motion.div key="pass" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md text-center">
               <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 200, delay: 0.1 }} className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full mb-6">
                 <TrendingUp size={16} className={rank.color} />
                 <span className={`text-sm font-black tracking-widest ${rank.color}`}>{rank.percent}</span>
               </motion.div>
-              <h2 className={`text-4xl md:text-5xl font-black uppercase tracking-tighter mb-8 leading-none ${rank.color}`}>{rank.label}</h2>
+              <h2 className={`text-5xl md:text-6xl font-black uppercase tracking-tighter mb-4 leading-none ${rank.color}`}>{rank.label}</h2>
               
                <motion.div 
                 initial={{ opacity: 0, y: 10 }} 
@@ -229,51 +261,28 @@ export default function WaitlistPage() {
               >
                  <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><Zap size={80} /></div>
                  
-                 <div className="flex items-center justify-center gap-2 mb-4">
-                    <h3 className="text-xl font-black italic text-white uppercase tracking-tighter">Boost Your <span className="text-[#F04E23]">LQ</span></h3>
-                    <div className="px-2 py-0.5 bg-white/10 text-[10px] font-bold rounded uppercase text-gray-300 border border-white/5">New Metric</div>
-                 </div>
+                 <h3 className="text-xl font-black italic text-white uppercase tracking-tighter mb-4">Spot Secured</h3>
                  
-                 <p className="text-gray-400 text-sm mb-8 leading-relaxed">
-                   Verdict is the only platform that tracks and improves your <strong>Logic Quotient</strong>. 
-                   <br/>Unlock your potential below.
-                 </p>
-
-                 <div className="relative group text-left">
-                    <form onSubmit={handleJoin}>
-                        <div className="relative">
-                            <input 
-                                type="email" 
-                                placeholder="Enter your email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                disabled={status === 'loading'}
-                                className="w-full h-14 bg-[#0A0A0A] border border-white/10 rounded-xl px-5 text-base outline-none focus:border-[#F04E23] focus:ring-1 focus:ring-[#F04E23] transition-all placeholder:text-gray-600 disabled:opacity-50"
-                            />
-                            <button 
-                                type="submit"
-                                disabled={status === 'loading' || !email}
-                                className="absolute right-1 top-1 bottom-1 bg-white text-black px-5 rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-[#F04E23] hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                            >
-                                {status === 'loading' ? (
-                                    <Loader2 className="animate-spin" size={16} />
-                                ) : (
-                                    <>Join <ArrowRight size={14} /></>
-                                )}
-                            </button>
-                        </div>
-                    </form>
-                    {status === 'error' && (
-                        <p className="text-red-500 text-xs mt-3 flex items-center justify-center gap-2">
-                            <AlertCircle size={12}/> {msg}
-                        </p>
-                    )}
+                 <div className="text-gray-400 text-sm mb-8 leading-relaxed space-y-4 text-left bg-white/5 p-4 rounded-xl border border-white/5">
+                    <p>
+                       <span className="text-[#F04E23] font-bold">Status:</span> Verdict is currently in private development. The Arena is not yet open to the public.
+                    </p>
+                    <p>
+                       You have been added to the <strong className="text-white">Priority Waitlist</strong>. We will notify <span className="text-white underline decoration-dotted underline-offset-4">{email}</span> immediately when we launch.
+                    </p>
                  </div>
+
+                 <button 
+                    onClick={() => setView('joined')}
+                    className="w-full h-14 bg-white text-black px-5 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-[#F04E23] hover:text-white transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                 >
+                    Claim Founder Card <ArrowRight size={14} />
+                 </button>
               </motion.div>
             </motion.div>
           )}
 
-          {/* 5. JOINED */}
+          {/* 6. JOINED (Member Card) */}
           {view === 'joined' && (
             <motion.div key="joined" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.5, ease: "easeOut" }} className="w-full max-w-sm">
                 <div className="bg-[#0A0A0A] rounded-2xl p-8 border border-[#333] shadow-2xl relative overflow-hidden flex flex-col justify-between aspect-[1.58/1] mb-8">
