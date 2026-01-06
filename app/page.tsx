@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, Check, X, Loader2, Brain, AlertCircle, TrendingUp, Zap, Fingerprint, Lock, 
   ArrowUp, Battery, BatteryLow, BatteryMedium, BatteryFull, Square, Circle, Triangle, Hexagon, Quote,
-  Swords, Scale, Trophy, ThumbsUp, ThumbsDown
+  Swords, Scale, Trophy, ThumbsUp, ThumbsDown, Cpu, Key, Shield
 } from 'lucide-react';
 import { joinWaitlist } from '@/app/actions/waitlist';
 import { getAiVerdict } from '@/app/actions/ai'; 
@@ -14,7 +14,7 @@ import { Logo } from '@/app/components/shared';
 import confetti from 'canvas-confetti';
 
 // --- QUESTION TYPES ---
-type QuestionType = 'mcq' | 'input_number' | 'text_area' | 'visual_matrix' | 'visual_sequence' | 'visual_math';
+type QuestionType = 'mcq' | 'input_number' | 'visual_matrix' | 'visual_sequence' | 'visual_math' | 'visual_drag';
 
 interface Question {
   id: number;
@@ -73,21 +73,27 @@ const QUESTIONS: Question[] = [
     placeholder: "Type the number...",
     a: "70" 
   },
-  // 7. Manifesto
+  // 7. NEW VISUAL DRAG & DROP PUZZLE
   {
-    id: 7, type: 'text_area',
-    q: "Final Stage: In one sentence, convince the AI Judge why you deserve to enter the Arena.",
-    placeholder: "I think differently because...",
-    a: "N/A" 
+    id: 7, type: 'visual_drag',
+    q: "SECURITY CHECK: Drag the correct decryption key into the core to bridge the connection.",
+    // The visual logic: The Core needs a "CPU" key. The options are Key, Shield, CPU.
+    data: { targetIcon: 'cpu' },
+    options: [
+        { id: 0, icon: 'key', label: 'RSA-1024' },
+        { id: 1, icon: 'shield', label: 'FW-BLOCK' },
+        { id: 2, icon: 'cpu', label: 'NEURAL-LINK' } // Correct
+    ],
+    a: 2 
   }
 ];
 
 type ViewState = 'intro' | 'quiz' | 'collect_email' | 'result_pass' | 'result_fail' | 'joined';
 
 const getRank = (score: number) => {
-  if (score === 6) return { percent: "TOP 0.1%", label: "GENIUS", color: "text-[#F04E23]" };
-  if (score === 5) return { percent: "TOP 5%", label: "STRATEGIST", color: "text-emerald-400" };
-  if (score >= 4) return { percent: "TOP 20%", label: "LOGICIAN", color: "text-blue-400" };
+  if (score === 7) return { percent: "TOP 0.1%", label: "GENIUS", color: "text-[#F04E23]" };
+  if (score === 6) return { percent: "TOP 1%", label: "MASTERMIND", color: "text-emerald-400" };
+  if (score === 5) return { percent: "TOP 5%", label: "STRATEGIST", color: "text-blue-400" };
   return { percent: "BOTTOM 50%", label: "NPC", color: "text-gray-400" };
 };
 
@@ -98,11 +104,10 @@ export default function WaitlistPage() {
   
   const [selectedOpt, setSelectedOpt] = useState<number | null>(null);
   const [textAnswer, setTextAnswer] = useState('');
-  const [email, setEmail] = useState('');
-  const [manifesto, setManifesto] = useState('');
-  const [aiRemark, setAiRemark] = useState('');
+  const [dragActive, setDragActive] = useState(false); // For Puzzle 7
   
-  // New state for validation step
+  const [email, setEmail] = useState('');
+  const [aiRemark, setAiRemark] = useState('');
   const [hasVoted, setHasVoted] = useState<'yes' | 'no' | null>(null);
 
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -117,15 +122,15 @@ export default function WaitlistPage() {
     trackVisit(vId);
   }, []);
 
-  const handleNext = (isCorrect: boolean, inputValue?: string) => {
-    if (QUESTIONS[currentQ].id === 7 && inputValue) setManifesto(inputValue);
-    if (isCorrect && QUESTIONS[currentQ].id < 7) setScore(prev => prev + 1);
+  const handleNext = (isCorrect: boolean) => {
+    if (isCorrect) setScore(prev => prev + 1);
 
     setTimeout(() => {
       if (currentQ < QUESTIONS.length - 1) {
         setCurrentQ(prev => prev + 1);
         setSelectedOpt(null);
         setTextAnswer('');
+        setDragActive(false);
       } else {
         setView('collect_email');
       }
@@ -141,10 +146,22 @@ export default function WaitlistPage() {
   const submitText = (e: React.FormEvent) => {
     e.preventDefault();
     if (!textAnswer.trim()) return;
-    let isCorrect = false;
-    if (QUESTIONS[currentQ].type === 'input_number') isCorrect = textAnswer.trim() === QUESTIONS[currentQ].a;
-    else if (QUESTIONS[currentQ].type === 'text_area') isCorrect = true;
-    handleNext(isCorrect, textAnswer);
+    const isCorrect = textAnswer.trim() === QUESTIONS[currentQ].a;
+    handleNext(isCorrect);
+  };
+
+  // --- DRAG LOGIC FOR Q7 ---
+  const handleDragEnd = (event: any, info: any, optionId: number) => {
+    // If dropped roughly in the center (negative Y offset from options row to core)
+    // Adjust these values if layout shifts, but -100 to -250 Y is generally the "Core Zone" above
+    if (info.offset.y < -50 && Math.abs(info.offset.x) < 100) {
+        const isCorrect = optionId === QUESTIONS[currentQ].a;
+        setDragActive(true); // Trigger visual success/fail state
+        // Small delay to show the "Link Established" animation
+        setTimeout(() => {
+            handleNext(isCorrect);
+        }, 800);
+    }
   };
 
   const handleFinalSubmit = async (e: React.FormEvent) => {
@@ -155,22 +172,20 @@ export default function WaitlistPage() {
     formData.append('email', email);
     formData.append('score', score.toString());
     formData.append('rank_label', rank.label);
-    
-    // --- FIX: correctly append the user's vote ---
-    formData.append('idea_vote', hasVoted === 'yes' ? 'awesome_idea' : 'not_for_me'); 
+    formData.append('idea_vote', hasVoted === 'yes' ? 'awesome_idea' : 'not_for_me');
+    formData.append('manifesto', 'N/A'); 
     
     if (visitorIdRef.current) formData.append('visitor_id', visitorIdRef.current);
 
     const result = await joinWaitlist(formData);
 
     if (result.success) {
-      const passed = score >= 4;
+      const passed = score >= 5; 
       
-      // Fetch AI verdict
-      const verdictText = await getAiVerdict(score, manifesto);
+      const contextString = hasVoted === 'yes' ? "User likes the idea." : "User is skeptical.";
+      const verdictText = await getAiVerdict(score, contextString);
       setAiRemark(verdictText);
 
-      // Track analytics
       if (visitorIdRef.current) await trackQuizResult(visitorIdRef.current, score, passed);
       
       setStatus('success');
@@ -186,16 +201,18 @@ export default function WaitlistPage() {
       setMsg(result.message);
     }
   };
+
   const restartQuiz = () => {
     setCurrentQ(0);
     setScore(0);
     setSelectedOpt(null);
     setTextAnswer('');
     setEmail('');
-    setHasVoted(null); // Reset vote
+    setHasVoted(null);
     setView('quiz');
   };
 
+  // --- RENDER HELPERS ---
   const renderShape = (type: string, className: string) => {
     switch(type) {
         case 'square': return <Square className={className} />;
@@ -324,6 +341,51 @@ export default function WaitlistPage() {
                     </div>
                 )}
 
+                {/* --- VISUAL PUZZLE 4: THE NEURAL LINK (Drag & Drop) --- */}
+                {QUESTIONS[currentQ].type === 'visual_drag' && (
+                    <div className="flex flex-col items-center gap-12 relative min-h-[300px] w-full">
+                        
+                        {/* 1. DROP ZONE (CORE) */}
+                        <div className="relative group">
+                            {/* Rotating Ring */}
+                            <motion.div 
+                                animate={{ rotate: 360 }} 
+                                transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                                className="absolute -inset-4 border-2 border-dashed border-white/10 rounded-full pointer-events-none"
+                            />
+                            {/* Core Visual */}
+                            <div className={`w-32 h-32 rounded-full border-4 flex items-center justify-center backdrop-blur-sm z-10 transition-all duration-300 ${dragActive ? 'border-[#F04E23] bg-[#F04E23]/20 shadow-[0_0_50px_rgba(240,78,35,0.4)]' : 'border-white/20 bg-white/5'}`}>
+                                {dragActive ? <Check size={48} className="text-[#F04E23]" /> : <Lock size={40} className="text-gray-500" />}
+                            </div>
+                            <span className="absolute -bottom-10 left-0 right-0 text-center text-[10px] uppercase tracking-widest text-gray-500 font-mono">
+                                {dragActive ? "CONNECTION BRIDGED" : "DROP KEY HERE"}
+                            </span>
+                        </div>
+
+                        {/* 2. DRAGGABLES (KEYS) */}
+                        <div className="w-full flex justify-center gap-6 px-2 mt-8">
+                            {QUESTIONS[currentQ].options?.map((opt: any, idx: number) => (
+                                <div key={idx} className="relative w-24 h-24 flex flex-col items-center justify-center">
+                                    {/* The Draggable Item */}
+                                    <motion.div
+                                        drag
+                                        dragSnapToOrigin
+                                        onDragEnd={(e, info) => handleDragEnd(e, info, opt.id)}
+                                        whileDrag={{ scale: 1.2, zIndex: 50, cursor: 'grabbing' }}
+                                        whileHover={{ scale: 1.05, cursor: 'grab' }}
+                                        className="w-20 h-20 bg-[#1A1A1A] border border-white/20 rounded-xl flex items-center justify-center z-20 hover:border-[#F04E23] hover:shadow-lg active:cursor-grabbing"
+                                    >
+                                        {opt.icon === 'key' && <Key className="text-white" size={32} />}
+                                        {opt.icon === 'shield' && <Shield className="text-white" size={32} />}
+                                        {opt.icon === 'cpu' && <Cpu className="text-white" size={32} />}
+                                    </motion.div>
+                                    <div className="absolute -bottom-6 text-[9px] font-mono text-gray-500 uppercase tracking-wider">{opt.label}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* B. MULTIPLE CHOICE (Text) */}
                 {QUESTIONS[currentQ].type === 'mcq' && QUESTIONS[currentQ].options?.map((opt, idx) => (
                   <button key={idx} onClick={() => submitMCQ(idx)} disabled={selectedOpt !== null} className={`w-full text-left p-5 rounded-xl border transition-all duration-200 flex justify-between items-center group ${selectedOpt === idx ? 'bg-[#F04E23] border-[#F04E23] text-white shadow-lg' : 'bg-white/5 border-white/5 hover:border-white/20 hover:bg-white/10 text-gray-300'}`}>
@@ -337,14 +399,6 @@ export default function WaitlistPage() {
                     <form onSubmit={submitText} className="relative">
                         <input type="number" autoFocus placeholder={QUESTIONS[currentQ].placeholder} value={textAnswer} onChange={(e) => setTextAnswer(e.target.value)} className="w-full h-16 bg-[#0A0A0A] border border-white/10 rounded-xl px-5 text-2xl font-mono outline-none focus:border-[#F04E23] transition-all placeholder:text-gray-700" />
                         <button type="submit" className="absolute right-2 top-2 bottom-2 bg-white text-black px-6 rounded-lg font-bold text-sm hover:bg-[#F04E23] hover:text-white transition-all">Submit</button>
-                    </form>
-                )}
-
-                {/* D. MANIFESTO */}
-                {QUESTIONS[currentQ].type === 'text_area' && (
-                    <form onSubmit={submitText} className="space-y-4">
-                        <textarea autoFocus placeholder={QUESTIONS[currentQ].placeholder} value={textAnswer} onChange={(e) => setTextAnswer(e.target.value)} className="w-full h-32 bg-[#0A0A0A] border border-white/10 rounded-xl p-5 text-lg font-sans outline-none focus:border-[#F04E23] transition-all placeholder:text-gray-700 resize-none" />
-                        <button type="submit" disabled={!textAnswer.trim()} className="w-full h-14 bg-white text-black rounded-xl font-bold text-sm uppercase tracking-widest hover:bg-[#F04E23] hover:text-white transition-all disabled:opacity-50">Finalize Application</button>
                     </form>
                 )}
               </div>
@@ -429,7 +483,7 @@ export default function WaitlistPage() {
                  <p className="text-gray-300 text-sm italic leading-relaxed">"{aiRemark || 'Logic insufficient.'}"</p>
               </div>
 
-              <p className="text-gray-500 text-xs mb-8">Score: {score}/6 (Threshold: 4/6)</p>
+              <p className="text-gray-500 text-xs mb-8">Score: {score}/7 (Threshold: 5/7)</p>
               
               <button onClick={restartQuiz} className="w-full h-12 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm uppercase tracking-widest transition-all">Retake Exam</button>
                <div className="mt-4 pt-4 border-t border-white/5">
@@ -480,7 +534,7 @@ export default function WaitlistPage() {
                     <div className="absolute top-[-50%] right-[-50%] w-full h-full bg-gradient-to-b from-[#F04E23]/10 to-transparent blur-3xl pointer-events-none rounded-full"></div>
                 </div>
                 <button onClick={() => {
-                    const text = `I just secured my spot as a Founding Member of Verdict.\n\nRank: ${rank.label} (${score}/6)\n\nCan you pass the entrance exam?`;
+                    const text = `I just secured my spot as a Founding Member of Verdict.\n\nRank: ${rank.label} (${score}/7)\n\nCan you pass the entrance exam?`;
                     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=https://getverdict.in`, '_blank');
                   }} className="w-full py-3 bg-[#1DA1F2] hover:bg-[#1a91da] rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all">
                   <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg> Challenge Twitter
