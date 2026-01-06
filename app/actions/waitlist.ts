@@ -3,13 +3,14 @@
 import { createClient } from '@/app/utils/supabase/server';
 
 export async function joinWaitlist(formData: FormData) {
-  // 1. Initialize the correct Server Client
   const supabase = await createClient();
 
   const email = formData.get("email") as string;
   const score = formData.get("score") as string;
   const rank_label = formData.get("rank_label") as string;
-  const visitor_id = formData.get("visitor_id") as string; // <--- Capture the ID
+  const manifesto = formData.get("manifesto") as string;
+  const idea_vote = formData.get("idea_vote") as string; // <--- Capture Vote
+  const visitor_id = formData.get("visitor_id") as string;
   
   if (!email || !email.includes("@")) {
     return { success: false, message: "Invalid email address." };
@@ -20,15 +21,16 @@ export async function joinWaitlist(formData: FormData) {
       .from('waitlist')
       .insert([
         { 
-          email: email, 
+          email, 
           score: parseInt(score), 
-          rank_label: rank_label,
-          visitor_id: visitor_id // <--- Save it to the DB
+          rank_label,
+          manifesto,
+          idea_vote, // <--- Save to DB
+          visitor_id
         }
       ]);
 
     if (error) {
-      // Code 23505 is for unique violation (already signed up)
       if (error.code === '23505') {
         return { success: true, message: "Spot already secured." };
       }

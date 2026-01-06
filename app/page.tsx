@@ -4,10 +4,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, Check, X, Loader2, Brain, AlertCircle, TrendingUp, Zap, Fingerprint, Lock, 
-  ArrowUp, Battery, BatteryLow, BatteryMedium, BatteryFull, Square, Circle, Triangle, Hexagon, Quote
+  ArrowUp, Battery, BatteryLow, BatteryMedium, BatteryFull, Square, Circle, Triangle, Hexagon, Quote,
+  Swords, Scale, Trophy, ThumbsUp, ThumbsDown
 } from 'lucide-react';
 import { joinWaitlist } from '@/app/actions/waitlist';
-import { getAiVerdict } from '@/app/actions/ai'; // Imported AI Action
+import { getAiVerdict } from '@/app/actions/ai'; 
 import { trackVisit, trackQuizResult } from '@/app/actions/analytics';
 import { Logo } from '@/app/components/shared';
 import confetti from 'canvas-confetti';
@@ -41,61 +42,38 @@ const QUESTIONS: Question[] = [
     options: ["100 minutes", "5 minutes", "1 hour", "20 minutes"], 
     a: 1 
   },
-  
-  // 3. VISUAL PUZZLE 1: SPATIAL ROTATION
+  // 3. VISUAL PUZZLE 1: MATRIX
   {
     id: 3, type: 'visual_matrix',
     q: "Complete the pattern.",
-    data: [
-      0, 90, 180,   
-      90, 180, 270, 
-      180, 270, -1  
-    ],
-    options: [
-      { id: 0, val: 0 },   // Correct
-      { id: 1, val: 90 },  
-      { id: 2, val: 180 }, 
-      { id: 3, val: 45 }   
-    ],
+    data: [0, 90, 180, 90, 180, 270, 180, 270, -1],
+    options: [{ id: 0, val: 0 }, { id: 1, val: 90 }, { id: 2, val: 180 }, { id: 3, val: 45 }],
     a: 0 
   },
-
-  // 4. VISUAL PUZZLE 2: PROGRESSION LOGIC
+  // 4. VISUAL PUZZLE 2: SEQUENCE
   {
     id: 4, type: 'visual_sequence',
     q: "What comes next in the sequence?",
     data: ['empty', 'low', 'medium'], 
-    options: [
-      { id: 0, type: 'empty' }, 
-      { id: 1, type: 'full' }, // Correct
-      { id: 2, type: 'medium' },
-      { id: 3, type: 'dead' }  
-    ],
+    options: [{ id: 0, type: 'empty' }, { id: 1, type: 'full' }, { id: 2, type: 'medium' }, { id: 3, type: 'dead' }],
     a: 1 
   },
-
-  // 5. VISUAL PUZZLE 3: ABSTRACT MATH
+  // 5. VISUAL PUZZLE 3: MATH
   {
     id: 5, type: 'visual_math',
     q: "Solve the shape equation.",
     data: { op1: 'hexagon', op: '-', op2: 'triangle' }, 
-    options: [
-      { id: 0, type: 'square' },   
-      { id: 1, type: 'circle' },   
-      { id: 2, type: 'triangle' }, // Correct
-      { id: 3, type: 'hexagon' }   
-    ],
+    options: [{ id: 0, type: 'square' }, { id: 1, type: 'circle' }, { id: 2, type: 'triangle' }, { id: 3, type: 'hexagon' }],
     a: 2 
   },
-
-  // 6. Arithmetic Trick (Input)
+  // 6. Arithmetic Trick
   {
     id: 6, type: 'input_number',
     q: "Divide 30 by half and add 10. What is the answer?",
     placeholder: "Type the number...",
     a: "70" 
   },
-  // 7. Manifesto (Text)
+  // 7. Manifesto
   {
     id: 7, type: 'text_area',
     q: "Final Stage: In one sentence, convince the AI Judge why you deserve to enter the Arena.",
@@ -122,8 +100,11 @@ export default function WaitlistPage() {
   const [textAnswer, setTextAnswer] = useState('');
   const [email, setEmail] = useState('');
   const [manifesto, setManifesto] = useState('');
-  const [aiRemark, setAiRemark] = useState(''); // Store the AI response
+  const [aiRemark, setAiRemark] = useState('');
   
+  // New state for validation step
+  const [hasVoted, setHasVoted] = useState<'yes' | 'no' | null>(null);
+
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [msg, setMsg] = useState('');
   
@@ -170,23 +151,26 @@ export default function WaitlistPage() {
     e.preventDefault();
     setStatus('loading');
     
-    // 1. Join Waitlist DB
     const formData = new FormData();
     formData.append('email', email);
     formData.append('score', score.toString());
     formData.append('rank_label', rank.label);
-    formData.append('manifesto', manifesto);
+    
+    // --- FIX: correctly append the user's vote ---
+    formData.append('idea_vote', hasVoted === 'yes' ? 'awesome_idea' : 'not_for_me'); 
+    
     if (visitorIdRef.current) formData.append('visitor_id', visitorIdRef.current);
 
     const result = await joinWaitlist(formData);
 
     if (result.success) {
-      // 2. Get AI Verdict (This runs in parallel with database for speed, but we await it here)
       const passed = score >= 4;
-      const verdictText = await getAiVerdict(score, manifesto); // Call the server action
+      
+      // Fetch AI verdict
+      const verdictText = await getAiVerdict(score, manifesto);
       setAiRemark(verdictText);
 
-      // 3. Analytics
+      // Track analytics
       if (visitorIdRef.current) await trackQuizResult(visitorIdRef.current, score, passed);
       
       setStatus('success');
@@ -202,13 +186,13 @@ export default function WaitlistPage() {
       setMsg(result.message);
     }
   };
-
   const restartQuiz = () => {
     setCurrentQ(0);
     setScore(0);
     setSelectedOpt(null);
     setTextAnswer('');
     setEmail('');
+    setHasVoted(null); // Reset vote
     setView('quiz');
   };
 
@@ -367,23 +351,66 @@ export default function WaitlistPage() {
             </motion.div>
           )}
 
-          {/* 3. EMAIL GATE */}
+          {/* 3. IDEA VALIDATION & EMAIL GATE */}
           {view === 'collect_email' && (
              <motion.div key="collect" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full max-w-md bg-[#0F0F0F] border border-white/10 p-8 rounded-3xl shadow-2xl text-center">
-               <div className="w-16 h-16 bg-[#F04E23]/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-[#F04E23]/20">
-                 <Lock className="text-[#F04E23]" size={32} />
-               </div>
-               <h2 className="text-2xl font-black uppercase tracking-tight mb-2 text-white">Calculating Logic Score...</h2>
-               <p className="text-gray-400 mb-8 font-medium">Analysis complete. Enter your email to unlock your <span className="text-white font-bold">LQ Rank</span> and result.</p>
-               <form onSubmit={handleFinalSubmit} className="space-y-4">
-                 <div className="relative text-left">
-                   <input type="email" required placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} disabled={status === 'loading'} className="w-full h-14 bg-[#0A0A0A] border border-white/10 rounded-xl px-5 text-base outline-none focus:border-[#F04E23] focus:ring-1 focus:ring-[#F04E23] transition-all placeholder:text-gray-600"/>
-                 </div>
-                 <button type="submit" disabled={status === 'loading' || !email} className="w-full h-14 bg-white text-black rounded-xl font-bold text-sm uppercase tracking-widest hover:bg-[#F04E23] hover:text-white transition-all flex items-center justify-center gap-3 disabled:opacity-50">
-                   {status === 'loading' ? <Loader2 className="animate-spin" /> : <>Unlock Result <ArrowRight size={18}/></>}
-                 </button>
-               </form>
-               {status === 'error' && <p className="text-red-500 text-xs mt-4 flex items-center justify-center gap-2"><AlertCircle size={14}/> {msg}</p>}
+               
+               {/* --- STEP 1: IDEA VALIDATION --- */}
+               {!hasVoted && (
+                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                    <div className="flex flex-col items-center">
+                        <Logo size="md" />
+                        <span className="mt-2 text-[10px] font-mono text-gray-500 uppercase tracking-widest border border-white/10 px-2 py-0.5 rounded-full">Concept Validation</span>
+                    </div>
+
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-left space-y-4">
+                        <h3 className="text-white font-bold text-lg leading-tight border-b border-white/5 pb-3">The UFC for Intellectuals.</h3>
+                        <ul className="space-y-3">
+                            <li className="flex items-start gap-3">
+                                <div className="min-w-4 pt-1"><Swords className="text-[#F04E23]" size={16} /></div>
+                                <span className="text-gray-400 text-sm">Real-time <strong className="text-gray-200">1v1 Debates</strong> on trending news.</span>
+                            </li>
+                            <li className="flex items-start gap-3">
+                                <div className="min-w-4 pt-1"><Scale className="text-[#F04E23]" size={16} /></div>
+                                <span className="text-gray-400 text-sm">Judged by AI. Ranked by <strong className="text-gray-200">Logic Quotient (LQ)</strong>.</span>
+                            </li>
+                            <li className="flex items-start gap-3">
+                                <div className="min-w-4 pt-1"><Trophy className="text-[#F04E23]" size={16} /></div>
+                                <span className="text-gray-400 text-sm">Climb the <strong className="text-gray-200">Global Leaderboard</strong>. Earn status.</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <button onClick={() => setHasVoted('no')} className="h-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-gray-400 uppercase tracking-widest transition-all">Not for me</button>
+                        <button onClick={() => setHasVoted('yes')} className="h-12 bg-white text-black hover:bg-[#F04E23] hover:text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2">Awesome Idea <ThumbsUp size={14}/></button>
+                    </div>
+                 </motion.div>
+               )}
+
+               {/* --- STEP 2: EMAIL CAPTURE --- */}
+               {hasVoted && (
+                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                    <div className="w-16 h-16 bg-[#F04E23]/10 rounded-full flex items-center justify-center mx-auto border border-[#F04E23]/20">
+                        <Lock className="text-[#F04E23]" size={32} />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-black uppercase tracking-tight mb-2 text-white">Calculation Complete</h2>
+                        <p className="text-gray-400 text-sm font-medium">Enter your email to unlock your <span className="text-white font-bold">LQ Rank</span> and secure your spot.</p>
+                    </div>
+                    
+                    <form onSubmit={handleFinalSubmit} className="space-y-4">
+                        <div className="relative text-left">
+                            <input type="email" required placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} disabled={status === 'loading'} className="w-full h-14 bg-[#0A0A0A] border border-white/10 rounded-xl px-5 text-base outline-none focus:border-[#F04E23] focus:ring-1 focus:ring-[#F04E23] transition-all placeholder:text-gray-600"/>
+                        </div>
+                        <button type="submit" disabled={status === 'loading' || !email} className="w-full h-14 bg-white text-black rounded-xl font-bold text-sm uppercase tracking-widest hover:bg-[#F04E23] hover:text-white transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+                            {status === 'loading' ? <Loader2 className="animate-spin" /> : <>Unlock Results <ArrowRight size={18}/></>}
+                        </button>
+                    </form>
+                    {status === 'error' && <p className="text-red-500 text-xs flex items-center justify-center gap-2"><AlertCircle size={14}/> {msg}</p>}
+                 </motion.div>
+               )}
+
              </motion.div>
           )}
 
