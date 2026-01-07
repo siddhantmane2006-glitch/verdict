@@ -4,43 +4,209 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, X, Loader2, Brain, Zap, Fingerprint, Trophy, 
-  Skull, Clock, TrendingUp, Target, Crown, Shield, MessageSquare, AlertTriangle
+  Skull, Clock, TrendingUp, Target, Crown, Shield, MessageSquare, 
+  AlertTriangle, Lock, GripVertical, Eye, Smile, Frown, Search, FileText,
+  Terminal, Code, Hash, Flame
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Logo } from '@/app/components/shared'; 
 
 // --- TYPES ---
 type GameState = 'matching' | 'playing' | 'victory_splash' | 'defeat_glitch' | 'win' | 'loss';
+type PuzzleType = 'choice' | 'mash' | 'slider' | 'toggles' | 'sequence' | 'reorder' | 'social' | 'crime' | 'observation';
 
-// --- 1. QUESTION POOL (Updated visual sizes for mobile) ---
-const BATTLE_QUESTIONS = [
-  { id: 'c1', prompt: 'Tap the COLOR of the text', visual: { type: 'text', content: 'GREEN', color: 'text-red-500', size: 'text-5xl md:text-7xl' }, options: [{ label: 'Green', val: 'green' }, { label: 'Red', val: 'red' }], answer: 'red' },
-  { id: 'c2', prompt: 'Tap the COLOR of the text', visual: { type: 'text', content: 'BLUE', color: 'text-yellow-400', size: 'text-5xl md:text-7xl' }, options: [{ label: 'Blue', val: 'blue' }, { label: 'Yellow', val: 'yellow' }], answer: 'yellow' },
-  { id: 'm1', prompt: '50 divided by half', visual: { type: 'text', content: '50 / 0.5', color: 'text-white', size: 'text-4xl md:text-6xl' }, options: [{ label: '25', val: '25' }, { label: '100', val: '100' }], answer: '100' },
-  { id: 'v1', prompt: 'Swipe OPPOSITE to arrow', visual: { type: 'icon_arrow', dir: 'right' }, options: [{ label: 'Left', val: 'left' }, { label: 'Right', val: 'right' }], answer: 'left' },
-  { id: 'l1', prompt: 'Which month has 28 days?', visual: { type: 'text', content: '📅', color: 'text-white', size: 'text-6xl md:text-8xl' }, options: [{ label: 'Feb', val: 'feb' }, { label: 'All', val: 'all' }], answer: 'all' },
-];
+interface Question {
+  id: string;
+  type: PuzzleType;
+  prompt: string;
+  visual: any; 
+  data?: any; 
+  options?: { label: string; val: string }[];
+  answer?: string; 
+}
 
 // --- UTILS ---
 const shuffleArray = (array: any[]) => [...array].sort(() => Math.random() - 0.5);
 
-const playHaptic = (type: 'good' | 'bad') => {
+const playHaptic = (type: 'good' | 'bad' | 'click') => {
   if (typeof navigator !== 'undefined' && navigator.vibrate) {
     if (type === 'good') navigator.vibrate(20);
-    if (type === 'bad') navigator.vibrate([50, 100, 50]);
+    if (type === 'bad') navigator.vibrate([40, 50, 40]);
+    if (type === 'click') navigator.vibrate(5);
   }
+};
+
+// --- 1. THE MASSIVE PUZZLE DECK (50+ Items) ---
+const generateBattleDeck = (): Question[] => {
+  const puzzles: Question[] = [
+    
+    // ==========================================
+    // 💻 CYBER-LOGIC (NEW)
+    // ==========================================
+    { 
+      id: 'cyb_1', type: 'choice', prompt: 'CLOSE THE TAG', 
+      visual: { type: 'code', content: '<div>...?' }, 
+      options: [{ label: '</div>', val: 'correct' }, { label: '<end>', val: 'wrong' }], 
+      answer: 'correct' 
+    },
+    { 
+      id: 'cyb_2', type: 'choice', prompt: 'TRUE OR FALSE?', 
+      visual: { type: 'code', content: '!true' }, 
+      options: [{ label: 'TRUE', val: 'wrong' }, { label: 'FALSE', val: 'correct' }], 
+      answer: 'correct' 
+    },
+    { 
+      id: 'cyb_3', type: 'choice', prompt: 'HTTP SUCCESS?', 
+      visual: { type: 'text', content: '404 vs 200', color: 'text-green-500' }, 
+      options: [{ label: '200', val: 'correct' }, { label: '404', val: 'wrong' }], 
+      answer: 'correct' 
+    },
+    { 
+      id: 'cyb_4', type: 'choice', prompt: 'WHICH IS BLACK?', 
+      visual: { type: 'text', content: '#000 vs #FFF', color: 'text-white' }, 
+      options: [{ label: '#000', val: 'correct' }, { label: '#FFF', val: 'wrong' }], 
+      answer: 'correct' 
+    },
+    { 
+      id: 'cyb_5', type: 'choice', prompt: 'BINARY FOR 2', 
+      visual: { type: 'code', content: '010 or 001' }, 
+      options: [{ label: '010', val: 'correct' }, { label: '001', val: 'wrong' }], 
+      answer: 'correct' 
+    },
+
+    // ==========================================
+    // 🧩 ABSTRACT REASONING (NEW)
+    // ==========================================
+    { 
+      id: 'abs_1', type: 'choice', prompt: 'COMPLETE PATTERN', 
+      visual: { type: 'text', content: '3, 6, 9, ?', color: 'text-blue-400' }, 
+      options: [{ label: '11', val: 'wrong' }, { label: '12', val: 'correct' }], 
+      answer: 'correct' 
+    },
+    { 
+      id: 'abs_2', type: 'choice', prompt: 'NEXT SHAPE', 
+      visual: { type: 'text', content: '🔺 🟥 ⬠ ?', color: 'text-yellow-500' }, 
+      options: [{ label: '⬡', val: 'correct' }, { label: '🔵', val: 'wrong' }], 
+      answer: 'correct' // Logic: Sides increase 3, 4, 5, 6
+    },
+    { 
+      id: 'abs_3', type: 'choice', prompt: 'OPPOSITE OF NORTH?', 
+      visual: { type: 'icon_arrow', dir: 'up' }, 
+      options: [{ label: 'SOUTH', val: 'correct' }, { label: 'EAST', val: 'wrong' }], 
+      answer: 'correct' 
+    },
+    { 
+      id: 'abs_4', type: 'choice', prompt: 'WHICH IS HEAVIER?', 
+      visual: { type: 'text', content: '1kg 🪶 vs 1kg 🗿', color: 'text-gray-300' }, 
+      options: [{ label: 'STONE', val: 'wrong' }, { label: 'EQUAL', val: 'correct' }], 
+      answer: 'correct' 
+    },
+
+    // ==========================================
+    // 🗣️ LINGUISTIC TRAPS (NEW)
+    // ==========================================
+    { 
+      id: 'ling_1', type: 'choice', prompt: 'ANAGRAM OF "SILENT"', 
+      visual: { type: 'text', content: 'SILENT', color: 'text-purple-400' }, 
+      options: [{ label: 'LISTEN', val: 'correct' }, { label: 'TENSE', val: 'wrong' }], 
+      answer: 'correct' 
+    },
+    { 
+      id: 'ling_2', type: 'choice', prompt: 'FIND THE NOUN', 
+      visual: { type: 'text', content: 'RUN vs CAR', color: 'text-white' }, 
+      options: [{ label: 'RUN', val: 'wrong' }, { label: 'CAR', val: 'correct' }], 
+      answer: 'correct' 
+    },
+    { 
+      id: 'ling_3', type: 'choice', prompt: 'CORRECT SPELLING', 
+      visual: { type: 'text', content: 'Which is right?', color: 'text-gray-400' }, 
+      options: [{ label: 'RECEIVE', val: 'correct' }, { label: 'RECIEVE', val: 'wrong' }], 
+      answer: 'correct' 
+    },
+    { 
+      id: 'ling_4', type: 'choice', prompt: 'PALINDROME?', 
+      visual: { type: 'text', content: 'RACECAR', color: 'text-red-500' }, 
+      options: [{ label: 'YES', val: 'correct' }, { label: 'NO', val: 'wrong' }], 
+      answer: 'correct' 
+    },
+
+    // ==========================================
+    // 🔥 SURVIVAL INSTINCT (NEW)
+    // ==========================================
+    { 
+      id: 'surv_1', type: 'choice', prompt: 'FIGHT OR FLIGHT?', 
+      visual: { type: 'text', content: '🐻', color: 'text-amber-700' }, // Bear
+      options: [{ label: 'PLAY DEAD', val: 'correct' }, { label: 'RUN', val: 'wrong' }], 
+      answer: 'correct' 
+    },
+    { 
+      id: 'surv_2', type: 'choice', prompt: 'SAFE TO DRINK?', 
+      visual: { type: 'text', content: '🌊 SALTWATER', color: 'text-blue-500' }, 
+      options: [{ label: 'YES', val: 'wrong' }, { label: 'NO', val: 'correct' }], 
+      answer: 'correct' 
+    },
+    { 
+      id: 'surv_3', type: 'choice', prompt: 'FIRE NEEDS?', 
+      visual: { type: 'icon', icon: Flame, color: 'text-orange-500' }, 
+      options: [{ label: 'OXYGEN', val: 'correct' }, { label: 'NITROGEN', val: 'wrong' }], 
+      answer: 'correct' 
+    },
+
+    // ==========================================
+    // 📸 OBSERVATION (EXISTING)
+    // ==========================================
+    { 
+      id: 'obs_1', type: 'observation', prompt: 'MEMORIZE SCENE', 
+      visual: { imageUrl: 'https://images.unsplash.com/photo-1491933382434-500287f9b54b?q=80&w=800&auto=format&fit=crop', question: 'WAS THERE AN APPLE?' }, 
+      options: [{ label: 'YES', val: 'correct' }, { label: 'NO', val: 'wrong' }], answer: 'correct' 
+    },
+    { 
+      id: 'obs_2', type: 'observation', prompt: 'MEMORIZE SCENE', 
+      visual: { imageUrl: 'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=800&auto=format&fit=crop', question: 'HOW MANY CUPS?' }, 
+      options: [{ label: 'ONE', val: 'wrong' }, { label: 'TWO', val: 'correct' }], answer: 'correct' 
+    },
+
+    // ==========================================
+    // 🕵️ CRIME & DEDUCTION (EXISTING)
+    // ==========================================
+    { id: 'crime_1', type: 'crime', prompt: 'BREAK THE ALIBI', visual: { type: 'fact', content: 'FACT: It is raining.' }, options: [{ label: '"My coat is dry"', val: 'liar' }, { label: '"I used an umbrella"', val: 'truth' }], answer: 'liar' },
+    { id: 'crime_3', type: 'crime', prompt: 'SPOT THE THREAT', visual: { type: 'grid', items: ['🍎', '🍌', '💣', '🍇'] }, options: [{ label: 'Bomb', val: 'correct' }, { label: 'Fruit', val: 'wrong' }], answer: 'correct' },
+
+    // ==========================================
+    // ⚡ INTERACTIVE & CLASSIC (EXISTING)
+    // ==========================================
+    { id: 'c1', type: 'choice', prompt: 'Tap the COLOR', visual: { type: 'text', content: 'GREEN', color: 'text-red-500', size: 'text-6xl' }, options: [{ label: 'Green', val: 'green' }, { label: 'Red', val: 'red' }], answer: 'red' },
+    { id: 'act_m1', type: 'mash', prompt: 'OVERLOAD SYSTEM', visual: { type: 'icon', icon: Zap, color: 'text-yellow-400' }, data: { target: 10 } },
+    { id: 'act_s1', type: 'slider', prompt: 'SET TO 75%', visual: { type: 'text', content: '75', color: 'text-white' }, data: { target: 75, tolerance: 5 } },
+    { id: 'ord_1', type: 'reorder', prompt: 'SMALLEST TO LARGEST', visual: { type: 'text', content: 'SORT', color: 'text-blue-400' }, data: { items: ['Atom', 'Human', 'Planet'], correct: ['Atom', 'Human', 'Planet'] } },
+  ];
+
+  return puzzles.sort(() => Math.random() - 0.5).slice(0, 15);
 };
 
 export default function ArenaPage() {
   const [view, setView] = useState<GameState>('matching');
-  const [deck, setDeck] = useState<any[]>([]);
+  const [deck, setDeck] = useState<Question[]>([]);
   const [qIndex, setQIndex] = useState(0);
   
+  // Game Stats
   const [tugValue, setTugValue] = useState(50); 
   const [timeLeft, setTimeLeft] = useState(45);
   const [combo, setCombo] = useState(0);
-  const [selectedOpt, setSelectedOpt] = useState<string | null>(null);
   
+  // Interaction State
+  const [selectedOpt, setSelectedOpt] = useState<string | null>(null);
+  const [mashCount, setMashCount] = useState(0);
+  const [sliderVal, setSliderVal] = useState(50);
+  const [toggles, setToggles] = useState([false, false, false, false]);
+  const [seqInput, setSeqInput] = useState<string[]>([]);
+  const [showSeq, setShowSeq] = useState(false);
+  const [reorderList, setReorderList] = useState<string[]>([]);
+
+  // Observation State
+  const [obsPhase, setObsPhase] = useState<'view' | 'flash' | 'quiz'>('view'); 
+
+  // Result State
   const [stats, setStats] = useState({ correct: 0, total: 0, speedSum: 0 });
   const [finisherState, setFinisherState] = useState<'pending' | 'roasted' | 'spared'>('pending');
   
@@ -49,14 +215,45 @@ export default function ArenaPage() {
 
   // --- INIT ---
   useEffect(() => {
-    const fullDeck = shuffleArray(BATTLE_QUESTIONS);
-    setDeck(fullDeck);
+    setDeck(generateBattleDeck());
     const matchTimer = setTimeout(() => {
         setView('playing');
         questionStartTime.current = Date.now();
     }, 3000); 
     return () => clearTimeout(matchTimer);
   }, []);
+
+  // --- RESET STATE ON QUESTION CHANGE ---
+  useEffect(() => {
+    const currentQ = deck[qIndex];
+    if (currentQ) {
+        setSelectedOpt(null);
+        setMashCount(0);
+        setSliderVal(50);
+        setToggles([false, false, false, false]);
+        setSeqInput([]);
+        setShowSeq(false);
+        if (currentQ.type === 'reorder') setReorderList([...shuffleArray(currentQ.data.items)]);
+        if (currentQ.type === 'sequence') {
+            setShowSeq(true);
+            setTimeout(() => setShowSeq(false), 2000);
+        }
+        
+        // OBSERVATION LOGIC
+        if (currentQ.type === 'observation') {
+            setObsPhase('view');
+            const viewTimer = setTimeout(() => {
+                setObsPhase('flash');
+                playHaptic('click');
+                const flashTimer = setTimeout(() => {
+                    setObsPhase('quiz');
+                }, 500); 
+                return () => clearTimeout(flashTimer);
+            }, 3000); 
+            return () => clearTimeout(viewTimer);
+        }
+    }
+  }, [qIndex, deck]);
 
   // --- GAME CLOCK ---
   useEffect(() => {
@@ -75,21 +272,14 @@ export default function ArenaPage() {
     }
   }, [view, tugValue]);
 
-  // --- WIN SPLASH ---
+  // --- END STATES ---
   useEffect(() => {
     if (view === 'victory_splash') {
         confetti({ particleCount: 150, spread: 70, colors: ['#F04E23', '#FFF'] });
-        const timer = setTimeout(() => setView('win'), 2500);
-        return () => clearTimeout(timer);
-    }
-  }, [view]);
-
-  // --- LOSS GLITCH ---
-  useEffect(() => {
-    if (view === 'defeat_glitch') {
+        setTimeout(() => setView('win'), 2500);
+    } else if (view === 'defeat_glitch') {
         playHaptic('bad');
-        const timer = setTimeout(() => setView('loss'), 2000);
-        return () => clearTimeout(timer);
+        setTimeout(() => setView('loss'), 2000);
     }
   }, [view]);
 
@@ -100,7 +290,6 @@ export default function ArenaPage() {
             let min = 800; let max = 1800;
             if (tugValue > 70) { min = 500; max = 1000; } 
             else if (tugValue < 30) { min = 1500; max = 2500; }
-
             const delay = Math.random() * (max - min) + min;
 
             botTimeoutRef.current = setTimeout(() => {
@@ -117,45 +306,77 @@ export default function ArenaPage() {
     }
   }, [view, tugValue]);
 
-  // --- ANSWER LOGIC ---
-  const handleAnswer = (val: string) => {
-    if (!deck.length) return;
+  // --- HANDLERS ---
+  const handleSuccess = () => {
+    const speed = Date.now() - questionStartTime.current;
+    playHaptic('good');
+    setCombo(c => c + 1);
+    setStats(p => ({ correct: p.correct + 1, total: p.total + 1, speedSum: p.speedSum + speed }));
+    setTugValue(prev => {
+        const next = prev + (18 + Math.min(combo * 2, 12));
+        if (next >= 100) { setView('victory_splash'); return 100; }
+        return next;
+    });
+    nextQuestion();
+  };
+
+  const handleFail = () => {
+    playHaptic('bad');
+    setCombo(0);
+    setTugValue(prev => Math.max(prev - 15, 0));
+    setStats(p => ({ ...p, total: p.total + 1 }));
+    nextQuestion();
+  };
+
+  const nextQuestion = () => {
+    setTimeout(() => {
+      setQIndex(prev => (prev + 1) % deck.length);
+      questionStartTime.current = Date.now();
+    }, 200);
+  };
+
+  // Specific Handlers
+  const handleChoice = (val: string) => {
     setSelectedOpt(val);
+    if (val === deck[qIndex].answer) handleSuccess(); else handleFail();
+  };
 
-    const now = Date.now();
-    const speed = now - questionStartTime.current;
-    const currentQ = deck[qIndex];
-    const isCorrect = val === currentQ.answer;
+  const handleMash = () => {
+    playHaptic('click');
+    const newCount = mashCount + 1;
+    setMashCount(newCount);
+    if (newCount >= deck[qIndex].data.target) handleSuccess();
+  };
 
-    if (isCorrect) {
-      playHaptic('good');
-      setCombo(c => c + 1);
-      setStats(prev => ({ correct: prev.correct + 1, total: prev.total + 1, speedSum: prev.speedSum + speed }));
+  const handleSliderRelease = () => {
+    if (Math.abs(sliderVal - deck[qIndex].data.target) <= deck[qIndex].data.tolerance) handleSuccess(); else handleFail();
+  };
 
-      setTugValue(prev => {
-          const next = prev + (18 + Math.min(combo * 2, 12));
-          if (next >= 100) { setView('victory_splash'); return 100; }
-          return next;
-      });
+  const handleToggle = (i: number) => {
+    playHaptic('click');
+    const newT = [...toggles]; newT[i] = !newT[i];
+    setToggles(newT);
+    const sum = newT.reduce((acc, v, idx) => acc + (v ? deck[qIndex].data.values[idx] : 0), 0);
+    if (sum === deck[qIndex].data.targetSum) handleSuccess();
+  };
 
-      setTimeout(() => {
-          setQIndex(prev => (prev + 1) % deck.length);
-          setSelectedOpt(null);
-          questionStartTime.current = Date.now(); 
-      }, 150);
+  const handleSeqInput = (col: string) => {
+    if (showSeq) return;
+    playHaptic('click');
+    const newSeq = [...seqInput, col];
+    setSeqInput(newSeq);
+    const target = deck[qIndex].data.sequence;
+    if (newSeq[newSeq.length-1] !== target[newSeq.length-1]) { handleFail(); return; }
+    if (newSeq.length === target.length) handleSuccess();
+  };
 
-    } else {
-      playHaptic('bad');
-      setCombo(0);
-      setTugValue(prev => Math.max(prev - 15, 0)); 
-      setStats(prev => ({ ...prev, total: prev.total + 1 })); 
-      
-      setTimeout(() => {
-        setQIndex(prev => (prev + 1) % deck.length);
-        setSelectedOpt(null);
-        questionStartTime.current = Date.now();
-      }, 150);
-    }
+  const handleReorderSwap = (idx: number) => {
+    playHaptic('click');
+    const newList = [...reorderList];
+    const swapIdx = idx === newList.length - 1 ? 0 : idx + 1;
+    [newList[idx], newList[swapIdx]] = [newList[swapIdx], newList[idx]];
+    setReorderList(newList);
+    if (JSON.stringify(newList) === JSON.stringify(deck[qIndex].data.correct)) handleSuccess();
   };
 
   const currentQ = deck[qIndex];
@@ -164,58 +385,31 @@ export default function ArenaPage() {
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-[#F04E23] flex flex-col relative overflow-hidden">
       
+      {/* BG */}
       <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: `linear-gradient(#fff 1px, transparent 1px), linear-gradient(to right, #fff 1px, transparent 1px)`, backgroundSize: '40px 40px' }}></div>
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050505]/50 to-[#050505] pointer-events-none"></div>
 
-      {/* === ANIMATION 1: VICTORY SPLASH (Responsive Text) === */}
+      {/* --- VICTORY SPLASH --- */}
       <AnimatePresence>
         {view === 'victory_splash' && (
-            <motion.div 
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="absolute inset-0 z-50 flex flex-col items-center justify-center overflow-hidden bg-black px-4"
-            >
-                <motion.div 
-                    animate={{ backgroundColor: ["#000", "#F04E23", "#000", "#F04E23", "#F04E23"] }}
-                    transition={{ duration: 0.5, times: [0, 0.2, 0.4, 0.6, 1] }}
-                    className="absolute inset-0"
-                />
-                <motion.div 
-                    initial={{ scale: 2, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                    className="relative z-10 text-center mix-blend-hard-light w-full"
-                >
-                    {/* Responsive Font Size: 6xl on mobile, 9xl on desktop */}
-                    <h1 className="text-6xl md:text-9xl font-black uppercase tracking-tighter text-black leading-none break-words">
-                        VERDICT
-                    </h1>
-                    <div className="bg-black text-[#F04E23] text-xl md:text-3xl font-mono font-bold px-6 py-2 inline-block transform -skew-x-12 mt-4">
-                        DELIVERED
-                    </div>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black px-4 overflow-hidden">
+                <motion.div animate={{ backgroundColor: ["#000", "#F04E23", "#000", "#F04E23", "#F04E23"] }} transition={{ duration: 0.5 }} className="absolute inset-0"/>
+                <motion.div initial={{ scale: 2 }} animate={{ scale: 1 }} className="relative z-10 text-center mix-blend-hard-light w-full">
+                    <h1 className="text-6xl md:text-9xl font-black uppercase tracking-tighter text-black leading-none break-words">VERDICT</h1>
+                    <div className="bg-black text-[#F04E23] text-xl md:text-3xl font-mono font-bold px-6 py-2 inline-block transform -skew-x-12 mt-4">DELIVERED</div>
                 </motion.div>
             </motion.div>
         )}
       </AnimatePresence>
 
-      {/* === ANIMATION 2: DEFEAT CRASH (Responsive Text) === */}
+      {/* --- DEFEAT CRASH --- */}
       <AnimatePresence>
         {view === 'defeat_glitch' && (
-            <motion.div 
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="absolute inset-0 z-50 flex flex-col items-center justify-center overflow-hidden bg-black px-4"
-            >
-                <motion.div 
-                    animate={{ x: [-20, 20, -15, 15, -5, 5, 0], backgroundColor: ["#000", "#ef4444", "#000", "#000"] }}
-                    transition={{ duration: 0.4 }}
-                    className="absolute inset-0 opacity-20"
-                />
-                <motion.div 
-                    initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1.1, opacity: 1 }} 
-                    className="relative z-10 text-center w-full"
-                >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black px-4 overflow-hidden">
+                <motion.div animate={{ x: [-20, 20, -15, 15, 0], backgroundColor: ["#000", "#ef4444", "#000"] }} transition={{ duration: 0.4 }} className="absolute inset-0 opacity-20"/>
+                <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1.1 }} className="relative z-10 text-center w-full">
                     <AlertTriangle size={60} className="text-red-500 mx-auto mb-6 animate-pulse" />
-                    {/* Responsive Font Size */}
-                    <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter text-red-500 leading-none break-words">
-                        OVERRULED
-                    </h1>
+                    <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter text-red-500 leading-none break-words">OVERRULED</h1>
                     <div className="mt-4 font-mono text-red-400 tracking-[0.5em] text-xs">SYSTEM FAILURE</div>
                 </motion.div>
             </motion.div>
@@ -224,7 +418,7 @@ export default function ArenaPage() {
 
       <main className="flex-grow flex flex-col items-center justify-center px-4 md:px-6 relative z-10 w-full max-w-2xl mx-auto py-8">
         
-        {/* === MATCHMAKING === */}
+        {/* --- MATCHMAKING --- */}
         {view === 'matching' && (
            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center flex flex-col items-center">
               <div className="mb-8 scale-125 relative">
@@ -232,39 +426,24 @@ export default function ArenaPage() {
                   <div className="relative z-10"><Logo size="lg" /></div>
               </div>
               <div className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs font-mono text-gray-400 uppercase tracking-widest backdrop-blur-md">
-                 <Loader2 size={12} className="animate-spin text-[#F04E23]"/>
-                 Scanning Arena...
+                 <Loader2 size={12} className="animate-spin text-[#F04E23]"/> Scanning Arena...
               </div>
            </motion.div>
         )}
 
-        {/* === BATTLE ARENA === */}
+        {/* --- BATTLE ARENA --- */}
         {view === 'playing' && currentQ && (
-          <div className="w-full flex flex-col gap-6">
+          <div className="w-full flex flex-col gap-6 h-full justify-between pb-8">
             <header className="flex justify-between items-center px-2">
-                <div className="flex items-center gap-3 opacity-70">
-                    <Skull size={18} className="text-gray-400" />
-                    <div className="hidden md:block font-bold text-gray-500 uppercase text-[10px]">KillerMike</div>
-                </div>
-                <div className={`flex flex-col items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-2xl border-2 ${timeLeft < 10 ? 'border-red-500 bg-red-900/20' : 'border-white/10 bg-[#111]'}`}>
-                    <span className={`text-xl md:text-2xl font-black ${timeLeft < 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>{timeLeft}</span>
-                    <span className="text-[8px] font-mono text-gray-500 uppercase">SEC</span>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="hidden md:block text-right font-bold text-gray-500 uppercase text-[10px]">You</div>
-                    <div className="w-10 h-10 bg-[#F04E23]/10 border border-[#F04E23]/50 rounded-xl flex items-center justify-center relative">
-                        <Fingerprint size={18} className="text-[#F04E23]" />
-                    </div>
-                </div>
+                <div className="flex items-center gap-3 opacity-70"><Skull size={18} className="text-gray-400" /><div className="hidden md:block font-bold text-gray-500 uppercase text-[10px]">KillerMike</div></div>
+                <div className="flex flex-col items-center justify-center w-14 h-14 bg-[#111] rounded-xl border border-white/10"><span className={`text-xl font-black ${timeLeft < 10 ? 'text-red-500' : 'text-white'}`}>{timeLeft}</span></div>
+                <div className="flex items-center gap-3"><div className="hidden md:block text-right font-bold text-gray-500 uppercase text-[10px]">You</div><Fingerprint size={18} className="text-[#F04E23]" /></div>
             </header>
 
             <div className="w-full px-2">
-                <div className="w-full h-4 bg-[#111] rounded-full overflow-hidden relative border border-white/5 shadow-inner">
+                <div className="w-full h-4 bg-[#111] rounded-full overflow-hidden relative border border-white/5">
                     <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/20 z-20"></div>
-                    <motion.div 
-                        className="h-full bg-[#F04E23]"
-                        animate={{ width: `${tugValue}%`, boxShadow: tugValue > 70 ? "0 0 50px #F04E23, 0 0 20px #fff" : "0 0 15px #F04E23" }}
-                    />
+                    <motion.div className="h-full bg-[#F04E23]" animate={{ width: `${tugValue}%`, boxShadow: tugValue > 70 ? "0 0 30px #F04E23" : "0 0 0px #000" }} />
                 </div>
             </div>
 
@@ -272,88 +451,186 @@ export default function ArenaPage() {
                 <motion.div 
                     key={currentQ.id}
                     initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }}
-                    className="w-full bg-[#0F0F0F] border border-white/10 p-6 rounded-3xl shadow-2xl relative min-h-[280px] flex flex-col items-center justify-center text-center"
+                    className="w-full bg-[#0F0F0F] border border-white/10 p-6 rounded-3xl shadow-2xl relative min-h-[350px] flex flex-col items-center justify-center text-center overflow-hidden"
                 >
-                    <div className="absolute top-4">
-                        <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest border border-white/10 bg-white/5 px-3 py-1 rounded-full">{currentQ.prompt}</span>
+                    <div className="absolute top-4 z-10">
+                        <span className={`text-[10px] font-mono font-bold uppercase tracking-widest border px-3 py-1 rounded-full 
+                            ${currentQ.type === 'crime' ? 'border-yellow-500/50 text-yellow-500 bg-yellow-500/10' : 
+                              currentQ.type === 'observation' ? 'border-purple-500/50 text-purple-500 bg-purple-500/10' :
+                              'border-white/10 text-gray-400 bg-white/5'}`}>
+                            {currentQ.type === 'observation' && obsPhase !== 'quiz' ? 'OBSERVE!' : currentQ.prompt}
+                        </span>
                     </div>
-                    <div className="flex items-center justify-center w-full mt-4">
-                        {currentQ.visual.type === 'trap_size' ? (
-                            <div className="flex items-end gap-4 md:gap-8 transform scale-100 md:scale-110">
-                                <span className="text-6xl md:text-8xl grayscale contrast-125">🐁</span>
-                                <span className="text-3xl md:text-4xl grayscale contrast-125">🐘</span>
+                    
+                    {/* --- DYNAMIC PUZZLE RENDERING --- */}
+
+                    {/* 1. OBSERVATION (MEMORY FLASH) */}
+                    {currentQ.type === 'observation' && (
+                        <>
+                            {obsPhase === 'view' && (
+                                <motion.div 
+                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                    className="w-full h-64 relative rounded-xl overflow-hidden mb-4"
+                                >
+                                    <img src={currentQ.visual.imageUrl} alt="Observe" className="w-full h-full object-cover" />
+                                    <motion.div 
+                                        className="absolute bottom-0 left-0 h-1 bg-white"
+                                        initial={{ width: "100%" }} animate={{ width: "0%" }}
+                                        transition={{ duration: 3, ease: "linear" }}
+                                    />
+                                </motion.div>
+                            )}
+                            {obsPhase === 'flash' && (
+                                <motion.div 
+                                    animate={{ backgroundColor: ["#000", "#F04E23", "#000", "#F04E23"] }}
+                                    transition={{ duration: 0.5 }}
+                                    className="absolute inset-0 z-20 flex items-center justify-center"
+                                />
+                            )}
+                            {obsPhase === 'quiz' && (
+                                <div className="w-full flex flex-col h-full animate-in fade-in zoom-in duration-300">
+                                    <div className="flex-grow flex flex-col items-center justify-center mb-6">
+                                        <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mb-4"><Brain size={32} className="text-purple-500" /></div>
+                                        <h2 className="text-3xl font-black tracking-tighter leading-none break-words max-w-full px-2">{currentQ.visual.question}</h2>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 w-full">
+                                        {currentQ.options?.map((opt: any, i: number) => (
+                                            <button key={i} onClick={() => handleChoice(opt.val)} className="h-20 bg-white/5 border border-white/10 rounded-2xl font-bold uppercase text-lg hover:bg-white hover:text-black transition-all">{opt.label}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
+                    
+                    {/* 2. STANDARD VISUALS (Choice, Crime, Social) */}
+                    {(currentQ.type === 'choice' || currentQ.type === 'social' || currentQ.type === 'crime') && (
+                        <>
+                            <div className="flex-grow flex items-center justify-center w-full">
+                                {currentQ.visual.type === 'code' ? (
+                                    <div className="bg-black/50 p-6 rounded-lg border border-green-500/30 font-mono text-green-400 text-3xl font-bold shadow-[0_0_20px_rgba(34,197,94,0.1)]">
+                                        <div className="flex items-center gap-2 text-xs text-green-700 mb-2"><Terminal size={12}/> bash</div>
+                                        {currentQ.visual.content}
+                                    </div>
+                                ) : currentQ.visual.type === 'trap_size' ? (
+                                    <div className="flex items-end gap-8 scale-125"><span className="text-6xl grayscale">🐁</span><span className="text-3xl grayscale">🐘</span></div>
+                                ) : currentQ.visual.type === 'icon_arrow' ? (
+                                    <ArrowRight size={80} className={`text-white transform ${currentQ.visual.dir === 'left' ? 'rotate-180' : ''}`} />
+                                ) : currentQ.visual.type === 'grid' ? (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {currentQ.visual.items.map((item: string, i: number) => <div key={i} className="text-4xl font-black">{item}</div>)}
+                                    </div>
+                                ) : currentQ.visual.type === 'fact' ? (
+                                    <div className="bg-yellow-500/10 border border-yellow-500/30 p-6 rounded-xl transform -rotate-1">
+                                        <div className="flex items-center gap-2 mb-2 text-yellow-500"><Search size={16} /><span className="text-xs font-black uppercase">Evidence</span></div>
+                                        <p className="text-xl font-bold text-white font-mono">{currentQ.visual.content}</p>
+                                    </div>
+                                ) : currentQ.visual.type === 'chat' ? (
+                                    <div className="bg-[#222] p-4 rounded-tl-xl rounded-tr-xl rounded-br-xl rounded-bl-none text-left max-w-[90%] border border-white/10">
+                                        <p className="text-xs text-gray-500 mb-1">{currentQ.visual.sender}</p>
+                                        <p className="text-lg font-medium">"{currentQ.visual.msg}"</p>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-4">
+                                        {currentQ.visual.icon && <currentQ.visual.icon size={64} className={`${currentQ.visual.color}`} />}
+                                        <h2 className={`${currentQ.visual.size || 'text-5xl'} font-black tracking-tighter ${currentQ.visual.color}`}>{currentQ.visual.content}</h2>
+                                    </div>
+                                )}
                             </div>
-                        ) : currentQ.visual.type === 'icon_arrow' ? (
-                            <ArrowRight size={80} className={`text-white transform transition-transform ${currentQ.visual.dir === 'left' ? 'rotate-180' : ''}`} />
-                        ) : (
-                            // Responsive Font Size for Question Text
-                            <h2 className={`${currentQ.visual.size || 'text-4xl md:text-6xl'} font-black tracking-tighter ${currentQ.visual.color} leading-none break-words max-w-full px-2`}>
-                                {currentQ.visual.content}
-                            </h2>
-                        )}
-                    </div>
+                            <div className="grid grid-cols-2 gap-3 w-full">
+                                {currentQ.options?.map((opt: any, i: number) => (
+                                    <button key={i} onClick={() => handleChoice(opt.val)} className="h-20 bg-white/5 border border-white/10 rounded-2xl font-bold uppercase text-lg hover:bg-white hover:text-black transition-all">{opt.label}</button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+
+                    {/* 3. REORDER (Drag Sim) */}
+                    {currentQ.type === 'reorder' && (
+                        <div className="flex flex-col items-center justify-center h-full gap-3 w-full">
+                            {reorderList.map((item, i) => (
+                                <button key={i} onClick={() => handleReorderSwap(i)} className="w-full h-16 bg-[#1a1a1a] border border-white/10 rounded-xl flex items-center justify-between px-4 active:bg-white/10">
+                                    <span className="font-bold">{item}</span>
+                                    <GripVertical size={16} className="text-gray-600" />
+                                </button>
+                            ))}
+                            <p className="text-[10px] text-gray-500 mt-2">TAP TO SWAP ORDER</p>
+                        </div>
+                    )}
+
+                    {/* 4. MASH */}
+                    {currentQ.type === 'mash' && (
+                        <div className="flex flex-col items-center justify-center h-full gap-6">
+                            <currentQ.visual.icon size={64} className={`${currentQ.visual.color} mb-4`} />
+                            <button onPointerDown={handleMash} className="w-40 h-40 rounded-full bg-[#F04E23] border-4 border-white text-black font-black text-3xl shadow-[0_0_40px_#F04E23] active:scale-90 transition-transform flex flex-col items-center justify-center">
+                                TAP! <span className="text-xs font-mono">{mashCount}/{currentQ.data.target}</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* 5. SLIDER */}
+                    {currentQ.type === 'slider' && (
+                        <div className="flex flex-col items-center justify-center h-full gap-8 w-full px-4">
+                            <div className="text-6xl font-black">{sliderVal}%</div>
+                            <input type="range" min="0" max="100" value={sliderVal} onChange={(e)=>setSliderVal(parseInt(e.target.value))} onMouseUp={handleSliderRelease} onTouchEnd={handleSliderRelease} className="w-full h-12 bg-gray-800 rounded-lg appearance-none accent-[#F04E23]" />
+                            <div className="text-xs font-mono text-gray-500">TARGET: {currentQ.data.target}%</div>
+                        </div>
+                    )}
+
+                    {/* 6. TOGGLES */}
+                    {currentQ.type === 'toggles' && (
+                        <div className="flex flex-col items-center justify-center h-full gap-6">
+                            <div className="flex gap-4">
+                                {toggles.map((on, i) => (
+                                    <button key={i} onClick={() => handleToggle(i)} className={`w-14 h-20 rounded-lg border-2 ${on ? 'bg-[#F04E23] border-[#F04E23]' : 'bg-black border-white/20'}`}>
+                                        <span className="text-xs font-mono text-white/50">{currentQ.data.values[i]}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="text-xl font-mono">SUM: {toggles.reduce((acc, v, i) => acc + (v ? currentQ.data.values[i] : 0), 0)}</div>
+                        </div>
+                    )}
+
+                    {/* 7. SEQUENCE */}
+                    {currentQ.type === 'sequence' && (
+                        <div className="flex flex-col items-center justify-center h-full gap-6 w-full">
+                            <div className="flex gap-3 h-12">
+                                {showSeq ? currentQ.data.sequence.map((c: string, i: number) => (
+                                    <motion.div key={i} initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-8 h-8 rounded-full" style={{ backgroundColor: c }} />
+                                )) : <span className="font-mono text-gray-500 animate-pulse">REPLICATE...</span>}
+                            </div>
+                            <div className="grid grid-cols-4 gap-2 w-full">
+                                {['red', 'blue', 'green', 'yellow'].map(c => (
+                                    <button key={c} onClick={() => handleSeqInput(c)} className="h-16 rounded-xl border border-white/10" style={{ backgroundColor: c === 'red' ? '#ef4444' : c === 'blue' ? '#3b82f6' : c === 'green' ? '#22c55e' : '#eab308' }} />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                 </motion.div>
             </AnimatePresence>
-
-            <div className="grid grid-cols-2 gap-3 w-full">
-                {currentQ.options.map((opt: any, idx: number) => (
-                    <button 
-                        key={idx} onClick={() => handleAnswer(opt.val)} 
-                        disabled={selectedOpt !== null}
-                        className={`h-20 md:h-24 rounded-2xl border transition-all duration-100 flex flex-col items-center justify-center relative group
-                            ${selectedOpt === opt.val ? 'bg-white border-white text-black scale-95' : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10 text-gray-300 active:scale-95'}`}
-                    >
-                        <span className="text-lg md:text-xl font-black uppercase tracking-tight z-10">{opt.label}</span>
-                    </button>
-                ))}
-            </div>
           </div>
         )}
 
-        {/* === VIEW 3: WIN SCREEN (Responsive) === */}
+        {/* --- WIN SCREEN --- */}
         {view === 'win' && (
-            <motion.div 
-                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} 
-                className="w-full max-w-md text-center bg-[#0F0F0F] p-6 md:p-8 rounded-[2rem] border border-white/10 shadow-[0_0_80px_rgba(240,78,35,0.15)] overflow-hidden"
-            >
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md text-center bg-[#0F0F0F] p-8 rounded-[2rem] border border-white/10 shadow-[0_0_80px_rgba(240,78,35,0.15)] overflow-hidden">
                  <div className="relative z-10">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#F04E23]/10 border border-[#F04E23]/30 rounded-full mb-6">
-                        <Crown size={14} className="text-[#F04E23]" />
-                        <span className="text-[10px] font-black tracking-[0.3em] text-[#F04E23] uppercase">Case Closed</span>
-                    </div>
-                    
-                    {/* Responsive Title */}
-                    <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter mb-4 text-white leading-none">
-                        VERDICT:<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F04E23] to-yellow-500">ABSOLUTE</span>
-                    </h2>
-                    
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#F04E23]/10 border border-[#F04E23]/30 rounded-full mb-6"><Crown size={14} className="text-[#F04E23]" /><span className="text-[10px] font-black tracking-[0.3em] text-[#F04E23] uppercase">Case Closed</span></div>
+                    <h2 className="text-5xl font-black uppercase tracking-tighter mb-4 text-white leading-none">VERDICT:<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F04E23] to-yellow-500">ABSOLUTE</span></h2>
                     <div className="bg-[#111] p-5 rounded-2xl border border-white/5 mb-8 text-left">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-[10px] font-mono text-gray-500 uppercase">Neural Speed</span>
-                            <span className="text-xs font-black text-green-500">{avgSpeed}s</span>
-                        </div>
-                        <p className="text-gray-400 text-sm italic leading-relaxed">
-                            "You processed the logic <span className="text-white font-bold">88% faster</span>. Synaptic response verified."
-                        </p>
+                        <div className="flex justify-between items-center mb-2"><span className="text-[10px] font-mono text-gray-500 uppercase">Neural Speed</span><span className="text-xs font-black text-green-500">{avgSpeed}s</span></div>
+                        <p className="text-gray-400 text-sm italic">"You processed logic <span className="text-white font-bold">88% faster</span>. Synaptic response verified."</p>
                     </div>
-
                     <AnimatePresence mode="wait">
                         {finisherState === 'pending' ? (
                             <motion.div key="choices" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} className="grid grid-cols-2 gap-3">
-                                <button onClick={() => setFinisherState('roasted')} className="group h-24 md:h-28 bg-black border border-red-900/40 rounded-2xl flex flex-col items-center justify-center transition-all hover:border-red-500">
-                                    <Skull size={20} className="text-red-600 mb-2" />
-                                    <span className="text-xs font-black text-red-500 uppercase tracking-widest">Roast</span>
-                                </button>
-                                <button onClick={() => setFinisherState('spared')} className="group h-24 md:h-28 bg-white text-black rounded-2xl flex flex-col items-center justify-center hover:bg-gray-200">
-                                    <Shield size={20} className="text-black mb-2" />
-                                    <span className="text-xs font-black uppercase tracking-widest">Spare</span>
-                                </button>
+                                <button onClick={() => setFinisherState('roasted')} className="group h-24 bg-black border border-red-900/40 rounded-2xl flex flex-col items-center justify-center hover:border-red-500"><Skull size={20} className="text-red-600 mb-2" /><span className="text-xs font-black text-red-500 uppercase tracking-widest">Roast</span></button>
+                                <button onClick={() => setFinisherState('spared')} className="group h-24 bg-white text-black rounded-2xl flex flex-col items-center justify-center hover:bg-gray-200"><Shield size={20} className="text-black mb-2" /><span className="text-xs font-black uppercase tracking-widest">Spare</span></button>
                             </motion.div>
                         ) : (
                             <motion.div key="result" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className={`p-6 rounded-2xl border text-left ${finisherState === 'roasted' ? 'bg-red-500/10 border-red-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
-                                <p className="text-white text-sm font-mono leading-snug italic">
-                                    {finisherState === 'roasted' ? "\"Switch to coloring books. Logic isn't for you.\"" : "\"Mercy granted. Reputation increased.\""}
-                                </p>
+                                <p className="text-white text-sm font-mono italic">{finisherState === 'roasted' ? "\"Switch to coloring books. Logic isn't for you.\"" : "\"Mercy granted. Reputation increased.\""}</p>
                                 <button onClick={() => window.location.reload()} className="w-full mt-6 h-12 bg-white text-black rounded-xl font-bold text-xs uppercase tracking-widest">Hunt Next Victim</button>
                             </motion.div>
                         )}
@@ -362,21 +639,15 @@ export default function ArenaPage() {
             </motion.div>
         )}
 
-        {/* === VIEW 4: LOSS SCREEN === */}
+        {/* --- LOSS SCREEN --- */}
         {view === 'loss' && (
              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-md bg-[#0F0F0F] p-8 rounded-3xl border border-white/10">
-                <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 border border-white/10">
-                    <Brain size={40} className="text-gray-500" />
-                </div>
+                <Brain size={40} className="text-gray-500 mx-auto mb-6" />
                 <h2 className="text-4xl font-black uppercase tracking-tight mb-2 text-white">CALCULATION<br/>ERROR</h2>
                 <div className="mb-8 mt-6 p-4 border-l-2 border-[#F04E23] bg-[#F04E23]/5 rounded-r-lg text-left">
-                     <p className="text-gray-300 text-sm italic leading-relaxed">
-                        "Your logic was sound, but reaction time lagged. <strong className="text-white">Prove it was a fluke.</strong>"
-                     </p>
+                     <p className="text-gray-300 text-sm italic">"Your logic was sound, but reaction time lagged. <strong className="text-white">Prove it was a fluke.</strong>"</p>
                 </div>
-                <button onClick={() => window.location.reload()} className="w-full h-14 bg-[#111] hover:bg-white hover:text-black border border-white/20 rounded-xl font-bold text-sm uppercase tracking-widest transition-all text-white flex items-center justify-center gap-2">
-                    Redeem Honor <ArrowRight size={16}/>
-                </button>
+                <button onClick={() => window.location.reload()} className="w-full h-14 bg-[#111] hover:bg-white hover:text-black border border-white/20 rounded-xl font-bold text-sm uppercase tracking-widest transition-all text-white flex items-center justify-center gap-2">Redeem Honor <ArrowRight size={16}/></button>
              </motion.div>
         )}
 
