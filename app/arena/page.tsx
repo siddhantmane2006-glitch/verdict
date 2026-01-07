@@ -5,8 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, X, Loader2, Brain, Zap, Fingerprint, Trophy, 
   Skull, Clock, TrendingUp, Target, Crown, Shield, MessageSquare, 
-  AlertTriangle, Lock, GripVertical, Eye, Smile, Frown, Search, FileText,
-  Terminal, Code, Hash, Flame
+  AlertTriangle, Lock, GripVertical, Eye, Smile, Frown, Search, FileText
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Logo } from '@/app/components/shared'; 
@@ -36,149 +35,53 @@ const playHaptic = (type: 'good' | 'bad' | 'click') => {
   }
 };
 
-// --- 1. THE MASSIVE PUZZLE DECK (50+ Items) ---
+// --- 1. THE BATTLE DECK ---
 const generateBattleDeck = (): Question[] => {
   const puzzles: Question[] = [
-    
-    // ==========================================
-    // 💻 CYBER-LOGIC (NEW)
-    // ==========================================
+    // --- 1. OBSERVATION (MEMORY FLASH) ---
     { 
-      id: 'cyb_1', type: 'choice', prompt: 'CLOSE THE TAG', 
-      visual: { type: 'code', content: '<div>...?' }, 
-      options: [{ label: '</div>', val: 'correct' }, { label: '<end>', val: 'wrong' }], 
-      answer: 'correct' 
-    },
-    { 
-      id: 'cyb_2', type: 'choice', prompt: 'TRUE OR FALSE?', 
-      visual: { type: 'code', content: '!true' }, 
-      options: [{ label: 'TRUE', val: 'wrong' }, { label: 'FALSE', val: 'correct' }], 
-      answer: 'correct' 
-    },
-    { 
-      id: 'cyb_3', type: 'choice', prompt: 'HTTP SUCCESS?', 
-      visual: { type: 'text', content: '404 vs 200', color: 'text-green-500' }, 
-      options: [{ label: '200', val: 'correct' }, { label: '404', val: 'wrong' }], 
-      answer: 'correct' 
-    },
-    { 
-      id: 'cyb_4', type: 'choice', prompt: 'WHICH IS BLACK?', 
-      visual: { type: 'text', content: '#000 vs #FFF', color: 'text-white' }, 
-      options: [{ label: '#000', val: 'correct' }, { label: '#FFF', val: 'wrong' }], 
-      answer: 'correct' 
-    },
-    { 
-      id: 'cyb_5', type: 'choice', prompt: 'BINARY FOR 2', 
-      visual: { type: 'code', content: '010 or 001' }, 
-      options: [{ label: '010', val: 'correct' }, { label: '001', val: 'wrong' }], 
-      answer: 'correct' 
-    },
-
-    // ==========================================
-    // 🧩 ABSTRACT REASONING (NEW)
-    // ==========================================
-    { 
-      id: 'abs_1', type: 'choice', prompt: 'COMPLETE PATTERN', 
-      visual: { type: 'text', content: '3, 6, 9, ?', color: 'text-blue-400' }, 
-      options: [{ label: '11', val: 'wrong' }, { label: '12', val: 'correct' }], 
-      answer: 'correct' 
-    },
-    { 
-      id: 'abs_2', type: 'choice', prompt: 'NEXT SHAPE', 
-      visual: { type: 'text', content: '🔺 🟥 ⬠ ?', color: 'text-yellow-500' }, 
-      options: [{ label: '⬡', val: 'correct' }, { label: '🔵', val: 'wrong' }], 
-      answer: 'correct' // Logic: Sides increase 3, 4, 5, 6
-    },
-    { 
-      id: 'abs_3', type: 'choice', prompt: 'OPPOSITE OF NORTH?', 
-      visual: { type: 'icon_arrow', dir: 'up' }, 
-      options: [{ label: 'SOUTH', val: 'correct' }, { label: 'EAST', val: 'wrong' }], 
-      answer: 'correct' 
-    },
-    { 
-      id: 'abs_4', type: 'choice', prompt: 'WHICH IS HEAVIER?', 
-      visual: { type: 'text', content: '1kg 🪶 vs 1kg 🗿', color: 'text-gray-300' }, 
-      options: [{ label: 'STONE', val: 'wrong' }, { label: 'EQUAL', val: 'correct' }], 
-      answer: 'correct' 
-    },
-
-    // ==========================================
-    // 🗣️ LINGUISTIC TRAPS (NEW)
-    // ==========================================
-    { 
-      id: 'ling_1', type: 'choice', prompt: 'ANAGRAM OF "SILENT"', 
-      visual: { type: 'text', content: 'SILENT', color: 'text-purple-400' }, 
-      options: [{ label: 'LISTEN', val: 'correct' }, { label: 'TENSE', val: 'wrong' }], 
-      answer: 'correct' 
-    },
-    { 
-      id: 'ling_2', type: 'choice', prompt: 'FIND THE NOUN', 
-      visual: { type: 'text', content: 'RUN vs CAR', color: 'text-white' }, 
-      options: [{ label: 'RUN', val: 'wrong' }, { label: 'CAR', val: 'correct' }], 
-      answer: 'correct' 
-    },
-    { 
-      id: 'ling_3', type: 'choice', prompt: 'CORRECT SPELLING', 
-      visual: { type: 'text', content: 'Which is right?', color: 'text-gray-400' }, 
-      options: [{ label: 'RECEIVE', val: 'correct' }, { label: 'RECIEVE', val: 'wrong' }], 
-      answer: 'correct' 
-    },
-    { 
-      id: 'ling_4', type: 'choice', prompt: 'PALINDROME?', 
-      visual: { type: 'text', content: 'RACECAR', color: 'text-red-500' }, 
+      id: 'obs_1', type: 'observation', prompt: 'MEMORIZE SCENE', 
+      visual: { 
+        imageUrl: 'https://images.unsplash.com/photo-1491933382434-500287f9b54b?q=80&w=800&auto=format&fit=crop', 
+        question: 'WAS THERE AN APPLE?' 
+      }, 
       options: [{ label: 'YES', val: 'correct' }, { label: 'NO', val: 'wrong' }], 
       answer: 'correct' 
     },
-
-    // ==========================================
-    // 🔥 SURVIVAL INSTINCT (NEW)
-    // ==========================================
-    { 
-      id: 'surv_1', type: 'choice', prompt: 'FIGHT OR FLIGHT?', 
-      visual: { type: 'text', content: '🐻', color: 'text-amber-700' }, // Bear
-      options: [{ label: 'PLAY DEAD', val: 'correct' }, { label: 'RUN', val: 'wrong' }], 
-      answer: 'correct' 
-    },
-    { 
-      id: 'surv_2', type: 'choice', prompt: 'SAFE TO DRINK?', 
-      visual: { type: 'text', content: '🌊 SALTWATER', color: 'text-blue-500' }, 
-      options: [{ label: 'YES', val: 'wrong' }, { label: 'NO', val: 'correct' }], 
-      answer: 'correct' 
-    },
-    { 
-      id: 'surv_3', type: 'choice', prompt: 'FIRE NEEDS?', 
-      visual: { type: 'icon', icon: Flame, color: 'text-orange-500' }, 
-      options: [{ label: 'OXYGEN', val: 'correct' }, { label: 'NITROGEN', val: 'wrong' }], 
-      answer: 'correct' 
-    },
-
-    // ==========================================
-    // 📸 OBSERVATION (EXISTING)
-    // ==========================================
-    { 
-      id: 'obs_1', type: 'observation', prompt: 'MEMORIZE SCENE', 
-      visual: { imageUrl: 'https://images.unsplash.com/photo-1491933382434-500287f9b54b?q=80&w=800&auto=format&fit=crop', question: 'WAS THERE AN APPLE?' }, 
-      options: [{ label: 'YES', val: 'correct' }, { label: 'NO', val: 'wrong' }], answer: 'correct' 
-    },
     { 
       id: 'obs_2', type: 'observation', prompt: 'MEMORIZE SCENE', 
-      visual: { imageUrl: 'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=800&auto=format&fit=crop', question: 'HOW MANY CUPS?' }, 
-      options: [{ label: 'ONE', val: 'wrong' }, { label: 'TWO', val: 'correct' }], answer: 'correct' 
+      visual: { 
+        imageUrl: 'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=800&auto=format&fit=crop', 
+        question: 'HOW MANY CUPS?' 
+      }, 
+      options: [{ label: 'ONE', val: 'wrong' }, { label: 'TWO', val: 'correct' }], 
+      answer: 'correct' 
     },
 
-    // ==========================================
-    // 🕵️ CRIME & DEDUCTION (EXISTING)
-    // ==========================================
-    { id: 'crime_1', type: 'crime', prompt: 'BREAK THE ALIBI', visual: { type: 'fact', content: 'FACT: It is raining.' }, options: [{ label: '"My coat is dry"', val: 'liar' }, { label: '"I used an umbrella"', val: 'truth' }], answer: 'liar' },
-    { id: 'crime_3', type: 'crime', prompt: 'SPOT THE THREAT', visual: { type: 'grid', items: ['🍎', '🍌', '💣', '🍇'] }, options: [{ label: 'Bomb', val: 'correct' }, { label: 'Fruit', val: 'wrong' }], answer: 'correct' },
+    // --- 2. CRIME SCENE ---
+    { 
+      id: 'crime_1', type: 'crime', prompt: 'BREAK THE ALIBI', 
+      visual: { type: 'fact', content: 'FACT: It is raining.' }, 
+      options: [{ label: '"My coat is dry"', val: 'liar' }, { label: '"I used an umbrella"', val: 'truth' }], 
+      answer: 'liar' 
+    },
+    { 
+      id: 'crime_3', type: 'crime', prompt: 'SPOT THE THREAT', 
+      visual: { type: 'grid', items: ['🍎', '🍌', '💣', '🍇'] }, 
+      options: [{ label: 'Bomb', val: 'correct' }, { label: 'Fruit', val: 'wrong' }], 
+      answer: 'correct' 
+    },
 
-    // ==========================================
-    // ⚡ INTERACTIVE & CLASSIC (EXISTING)
-    // ==========================================
+    // --- 3. CLASSIC LOGIC ---
     { id: 'c1', type: 'choice', prompt: 'Tap the COLOR', visual: { type: 'text', content: 'GREEN', color: 'text-red-500', size: 'text-6xl' }, options: [{ label: 'Green', val: 'green' }, { label: 'Red', val: 'red' }], answer: 'red' },
-    { id: 'act_m1', type: 'mash', prompt: 'OVERLOAD SYSTEM', visual: { type: 'icon', icon: Zap, color: 'text-yellow-400' }, data: { target: 10 } },
+    { id: 'v1', type: 'choice', prompt: 'Swipe OPPOSITE', visual: { type: 'icon_arrow', dir: 'right' }, options: [{ label: 'Left', val: 'left' }, { label: 'Right', val: 'right' }], answer: 'left' },
+    
+    // --- 4. INTERACTIVE ---
+    { id: 'act_m1', type: 'mash', prompt: 'OVERLOAD SYSTEM', visual: { type: 'icon', icon: Zap, color: 'text-yellow-400' }, data: { target: 8 } },
     { id: 'act_s1', type: 'slider', prompt: 'SET TO 75%', visual: { type: 'text', content: '75', color: 'text-white' }, data: { target: 75, tolerance: 5 } },
-    { id: 'ord_1', type: 'reorder', prompt: 'SMALLEST TO LARGEST', visual: { type: 'text', content: 'SORT', color: 'text-blue-400' }, data: { items: ['Atom', 'Human', 'Planet'], correct: ['Atom', 'Human', 'Planet'] } },
+    
+    // --- 5. SOCIAL IQ ---
+    { id: 'soc_1', type: 'social', prompt: 'DETECT THE TONE', visual: { type: 'chat', msg: "Fine. Do whatever.", sender: "Partner" }, options: [{ label: 'Happy', val: 'A' }, { label: 'Angry', val: 'B' }], answer: 'B' },
   ];
 
   return puzzles.sort(() => Math.random() - 0.5).slice(0, 15);
@@ -203,7 +106,7 @@ export default function ArenaPage() {
   const [showSeq, setShowSeq] = useState(false);
   const [reorderList, setReorderList] = useState<string[]>([]);
 
-  // Observation State
+  // Observation State: 'view' -> 'flash' -> 'quiz'
   const [obsPhase, setObsPhase] = useState<'view' | 'flash' | 'quiz'>('view'); 
 
   // Result State
@@ -247,9 +150,9 @@ export default function ArenaPage() {
                 playHaptic('click');
                 const flashTimer = setTimeout(() => {
                     setObsPhase('quiz');
-                }, 500); 
+                }, 500); // 0.5s flash duration
                 return () => clearTimeout(flashTimer);
-            }, 3000); 
+            }, 3000); // 3s viewing time
             return () => clearTimeout(viewTimer);
         }
     }
@@ -335,7 +238,7 @@ export default function ArenaPage() {
     }, 200);
   };
 
-  // Specific Handlers
+  // Puzzle Specific Handlers
   const handleChoice = (val: string) => {
     setSelectedOpt(val);
     if (val === deck[qIndex].answer) handleSuccess(); else handleFail();
@@ -464,7 +367,7 @@ export default function ArenaPage() {
                     
                     {/* --- DYNAMIC PUZZLE RENDERING --- */}
 
-                    {/* 1. OBSERVATION (MEMORY FLASH) */}
+                    {/* 7. OBSERVATION (MEMORY FLASH) - UPDATED: NO EYE, ORANGE SPLASH */}
                     {currentQ.type === 'observation' && (
                         <>
                             {obsPhase === 'view' && (
@@ -475,23 +378,32 @@ export default function ArenaPage() {
                                     <img src={currentQ.visual.imageUrl} alt="Observe" className="w-full h-full object-cover" />
                                     <motion.div 
                                         className="absolute bottom-0 left-0 h-1 bg-white"
-                                        initial={{ width: "100%" }} animate={{ width: "0%" }}
+                                        initial={{ width: "100%" }}
+                                        animate={{ width: "0%" }}
                                         transition={{ duration: 3, ease: "linear" }}
                                     />
                                 </motion.div>
                             )}
+
                             {obsPhase === 'flash' && (
                                 <motion.div 
                                     animate={{ backgroundColor: ["#000", "#F04E23", "#000", "#F04E23"] }}
                                     transition={{ duration: 0.5 }}
                                     className="absolute inset-0 z-20 flex items-center justify-center"
-                                />
+                                >
+                                    {/* No Icon, just color strobe */}
+                                </motion.div>
                             )}
+
                             {obsPhase === 'quiz' && (
                                 <div className="w-full flex flex-col h-full animate-in fade-in zoom-in duration-300">
                                     <div className="flex-grow flex flex-col items-center justify-center mb-6">
-                                        <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mb-4"><Brain size={32} className="text-purple-500" /></div>
-                                        <h2 className="text-3xl font-black tracking-tighter leading-none break-words max-w-full px-2">{currentQ.visual.question}</h2>
+                                        <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mb-4">
+                                            <Brain size={32} className="text-purple-500" />
+                                        </div>
+                                        <h2 className="text-3xl font-black tracking-tighter leading-none break-words max-w-full px-2">
+                                            {currentQ.visual.question}
+                                        </h2>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3 w-full">
                                         {currentQ.options?.map((opt: any, i: number) => (
@@ -503,16 +415,11 @@ export default function ArenaPage() {
                         </>
                     )}
                     
-                    {/* 2. STANDARD VISUALS (Choice, Crime, Social) */}
+                    {/* 1. CRIME / SOCIAL / CHOICE (Standard) */}
                     {(currentQ.type === 'choice' || currentQ.type === 'social' || currentQ.type === 'crime') && (
                         <>
                             <div className="flex-grow flex items-center justify-center w-full">
-                                {currentQ.visual.type === 'code' ? (
-                                    <div className="bg-black/50 p-6 rounded-lg border border-green-500/30 font-mono text-green-400 text-3xl font-bold shadow-[0_0_20px_rgba(34,197,94,0.1)]">
-                                        <div className="flex items-center gap-2 text-xs text-green-700 mb-2"><Terminal size={12}/> bash</div>
-                                        {currentQ.visual.content}
-                                    </div>
-                                ) : currentQ.visual.type === 'trap_size' ? (
+                                {currentQ.visual.type === 'trap_size' ? (
                                     <div className="flex items-end gap-8 scale-125"><span className="text-6xl grayscale">🐁</span><span className="text-3xl grayscale">🐘</span></div>
                                 ) : currentQ.visual.type === 'icon_arrow' ? (
                                     <ArrowRight size={80} className={`text-white transform ${currentQ.visual.dir === 'left' ? 'rotate-180' : ''}`} />
@@ -545,7 +452,7 @@ export default function ArenaPage() {
                         </>
                     )}
 
-                    {/* 3. REORDER (Drag Sim) */}
+                    {/* 2. REORDER (Drag Sim) */}
                     {currentQ.type === 'reorder' && (
                         <div className="flex flex-col items-center justify-center h-full gap-3 w-full">
                             {reorderList.map((item, i) => (
@@ -558,7 +465,7 @@ export default function ArenaPage() {
                         </div>
                     )}
 
-                    {/* 4. MASH */}
+                    {/* 3. MASH */}
                     {currentQ.type === 'mash' && (
                         <div className="flex flex-col items-center justify-center h-full gap-6">
                             <currentQ.visual.icon size={64} className={`${currentQ.visual.color} mb-4`} />
@@ -568,7 +475,7 @@ export default function ArenaPage() {
                         </div>
                     )}
 
-                    {/* 5. SLIDER */}
+                    {/* 4. SLIDER */}
                     {currentQ.type === 'slider' && (
                         <div className="flex flex-col items-center justify-center h-full gap-8 w-full px-4">
                             <div className="text-6xl font-black">{sliderVal}%</div>
@@ -577,7 +484,7 @@ export default function ArenaPage() {
                         </div>
                     )}
 
-                    {/* 6. TOGGLES */}
+                    {/* 5. TOGGLES */}
                     {currentQ.type === 'toggles' && (
                         <div className="flex flex-col items-center justify-center h-full gap-6">
                             <div className="flex gap-4">
@@ -591,7 +498,7 @@ export default function ArenaPage() {
                         </div>
                     )}
 
-                    {/* 7. SEQUENCE */}
+                    {/* 6. SEQUENCE */}
                     {currentQ.type === 'sequence' && (
                         <div className="flex flex-col items-center justify-center h-full gap-6 w-full">
                             <div className="flex gap-3 h-12">
@@ -612,7 +519,7 @@ export default function ArenaPage() {
           </div>
         )}
 
-        {/* --- WIN SCREEN --- */}
+        {/* --- VIEW 3: WIN SCREEN --- */}
         {view === 'win' && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md text-center bg-[#0F0F0F] p-8 rounded-[2rem] border border-white/10 shadow-[0_0_80px_rgba(240,78,35,0.15)] overflow-hidden">
                  <div className="relative z-10">
@@ -639,7 +546,7 @@ export default function ArenaPage() {
             </motion.div>
         )}
 
-        {/* --- LOSS SCREEN --- */}
+        {/* --- VIEW 4: LOSS SCREEN --- */}
         {view === 'loss' && (
              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-md bg-[#0F0F0F] p-8 rounded-3xl border border-white/10">
                 <Brain size={40} className="text-gray-500 mx-auto mb-6" />

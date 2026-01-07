@@ -5,16 +5,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, Check, X, Loader2, Brain, AlertCircle, TrendingUp, Zap, Fingerprint, Lock, 
   ArrowUp, Battery, BatteryLow, BatteryMedium, BatteryFull, Square, Circle, Triangle, Hexagon, Quote,
-  Swords, Scale, Trophy, ThumbsUp, ThumbsDown, Cpu, Key, Shield
+  Swords, Scale, Trophy, ThumbsUp, ThumbsDown, Activity, Sliders
 } from 'lucide-react';
 import { joinWaitlist } from '@/app/actions/waitlist';
 import { getAiVerdict } from '@/app/actions/ai'; 
 import { trackVisit, trackQuizResult } from '@/app/actions/analytics';
-import { Logo } from '@/app/components/shared';
 import confetti from 'canvas-confetti';
 
 // --- QUESTION TYPES ---
-type QuestionType = 'mcq' | 'input_number' | 'visual_matrix' | 'visual_sequence' | 'visual_math' | 'visual_drag';
+type QuestionType = 'mcq' | 'input_number' | 'visual_matrix' | 'visual_sequence' | 'visual_math' | 'visual_slider';
 
 interface Question {
   id: number;
@@ -73,18 +72,12 @@ const QUESTIONS: Question[] = [
     placeholder: "Type the number...",
     a: "70" 
   },
-  // 7. NEW VISUAL DRAG & DROP PUZZLE
+  // 7. NEW VISUAL SLIDER (Draggable)
   {
-    id: 7, type: 'visual_drag',
-    q: "SECURITY CHECK: Drag the correct decryption key into the core to bridge the connection.",
-    // The visual logic: The Core needs a "CPU" key. The options are Key, Shield, CPU.
-    data: { targetIcon: 'cpu' },
-    options: [
-        { id: 0, icon: 'key', label: 'RSA-1024' },
-        { id: 1, icon: 'shield', label: 'FW-BLOCK' },
-        { id: 2, icon: 'cpu', label: 'NEURAL-LINK' } // Correct
-    ],
-    a: 2 
+    id: 7, type: 'visual_slider',
+    q: "Synchronize the system.\nTarget Load: Hexagon(6) + Square(4)",
+    data: { target: 10, min: 0, max: 20 },
+    a: "10" // The user must drag the slider to 10
   }
 ];
 
@@ -104,7 +97,7 @@ export default function WaitlistPage() {
   
   const [selectedOpt, setSelectedOpt] = useState<number | null>(null);
   const [textAnswer, setTextAnswer] = useState('');
-  const [dragActive, setDragActive] = useState(false); // For Puzzle 7
+  const [sliderValue, setSliderValue] = useState(0); // New state for slider
   
   const [email, setEmail] = useState('');
   const [aiRemark, setAiRemark] = useState('');
@@ -130,7 +123,7 @@ export default function WaitlistPage() {
         setCurrentQ(prev => prev + 1);
         setSelectedOpt(null);
         setTextAnswer('');
-        setDragActive(false);
+        setSliderValue(0); // Reset slider
       } else {
         setView('collect_email');
       }
@@ -150,18 +143,10 @@ export default function WaitlistPage() {
     handleNext(isCorrect);
   };
 
-  // --- DRAG LOGIC FOR Q7 ---
-  const handleDragEnd = (event: any, info: any, optionId: number) => {
-    // If dropped roughly in the center (negative Y offset from options row to core)
-    // Adjust these values if layout shifts, but -100 to -250 Y is generally the "Core Zone" above
-    if (info.offset.y < -50 && Math.abs(info.offset.x) < 100) {
-        const isCorrect = optionId === QUESTIONS[currentQ].a;
-        setDragActive(true); // Trigger visual success/fail state
-        // Small delay to show the "Link Established" animation
-        setTimeout(() => {
-            handleNext(isCorrect);
-        }, 800);
-    }
+  const submitSlider = (e: React.FormEvent) => {
+    e.preventDefault();
+    const isCorrect = sliderValue.toString() === QUESTIONS[currentQ].a;
+    handleNext(isCorrect);
   };
 
   const handleFinalSubmit = async (e: React.FormEvent) => {
@@ -173,15 +158,16 @@ export default function WaitlistPage() {
     formData.append('score', score.toString());
     formData.append('rank_label', rank.label);
     formData.append('idea_vote', hasVoted === 'yes' ? 'awesome_idea' : 'not_for_me');
-    formData.append('manifesto', 'N/A'); 
+    formData.append('manifesto', 'N/A'); // No longer asking for manifesto
     
     if (visitorIdRef.current) formData.append('visitor_id', visitorIdRef.current);
 
     const result = await joinWaitlist(formData);
 
     if (result.success) {
-      const passed = score >= 5; 
+      const passed = score >= 5; // Updated passing score threshold
       
+      // We pass the vote as context to the AI since we removed the manifesto
       const contextString = hasVoted === 'yes' ? "User likes the idea." : "User is skeptical.";
       const verdictText = await getAiVerdict(score, contextString);
       setAiRemark(verdictText);
@@ -207,6 +193,7 @@ export default function WaitlistPage() {
     setScore(0);
     setSelectedOpt(null);
     setTextAnswer('');
+    setSliderValue(0);
     setEmail('');
     setHasVoted(null);
     setView('quiz');
@@ -341,48 +328,31 @@ export default function WaitlistPage() {
                     </div>
                 )}
 
-                {/* --- VISUAL PUZZLE 4: THE NEURAL LINK (Drag & Drop) --- */}
-                {QUESTIONS[currentQ].type === 'visual_drag' && (
-                    <div className="flex flex-col items-center gap-12 relative min-h-[300px] w-full">
-                        
-                        {/* 1. DROP ZONE (CORE) */}
-                        <div className="relative group">
-                            {/* Rotating Ring */}
-                            <motion.div 
-                                animate={{ rotate: 360 }} 
-                                transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                                className="absolute -inset-4 border-2 border-dashed border-white/10 rounded-full pointer-events-none"
-                            />
-                            {/* Core Visual */}
-                            <div className={`w-32 h-32 rounded-full border-4 flex items-center justify-center backdrop-blur-sm z-10 transition-all duration-300 ${dragActive ? 'border-[#F04E23] bg-[#F04E23]/20 shadow-[0_0_50px_rgba(240,78,35,0.4)]' : 'border-white/20 bg-white/5'}`}>
-                                {dragActive ? <Check size={48} className="text-[#F04E23]" /> : <Lock size={40} className="text-gray-500" />}
+                {/* --- VISUAL PUZZLE 4: SLIDER (DRAGGABLE) --- */}
+                {QUESTIONS[currentQ].type === 'visual_slider' && (
+                    <div className="flex flex-col items-center gap-8">
+                        <div className="bg-[#1A1A1A] p-8 rounded-xl border border-white/10 w-full text-center">
+                            <div className="flex justify-center items-center gap-2 mb-2">
+                                <Activity className="text-[#F04E23] animate-pulse" />
+                                <span className="text-3xl font-black font-mono text-white">{sliderValue}</span>
                             </div>
-                            <span className="absolute -bottom-10 left-0 right-0 text-center text-[10px] uppercase tracking-widest text-gray-500 font-mono">
-                                {dragActive ? "CONNECTION BRIDGED" : "DROP KEY HERE"}
-                            </span>
+                            <span className="text-xs text-gray-500 uppercase tracking-widest">Adjust Frequency</span>
                         </div>
-
-                        {/* 2. DRAGGABLES (KEYS) */}
-                        <div className="w-full flex justify-center gap-6 px-2 mt-8">
-                            {QUESTIONS[currentQ].options?.map((opt: any, idx: number) => (
-                                <div key={idx} className="relative w-24 h-24 flex flex-col items-center justify-center">
-                                    {/* The Draggable Item */}
-                                    <motion.div
-                                        drag
-                                        dragSnapToOrigin
-                                        onDragEnd={(e, info) => handleDragEnd(e, info, opt.id)}
-                                        whileDrag={{ scale: 1.2, zIndex: 50, cursor: 'grabbing' }}
-                                        whileHover={{ scale: 1.05, cursor: 'grab' }}
-                                        className="w-20 h-20 bg-[#1A1A1A] border border-white/20 rounded-xl flex items-center justify-center z-20 hover:border-[#F04E23] hover:shadow-lg active:cursor-grabbing"
-                                    >
-                                        {opt.icon === 'key' && <Key className="text-white" size={32} />}
-                                        {opt.icon === 'shield' && <Shield className="text-white" size={32} />}
-                                        {opt.icon === 'cpu' && <Cpu className="text-white" size={32} />}
-                                    </motion.div>
-                                    <div className="absolute -bottom-6 text-[9px] font-mono text-gray-500 uppercase tracking-wider">{opt.label}</div>
-                                </div>
-                            ))}
-                        </div>
+                        <form onSubmit={submitSlider} className="w-full space-y-6">
+                            <div className="relative w-full h-12 flex items-center">
+                                <input 
+                                    type="range" 
+                                    min="0" 
+                                    max="20" 
+                                    value={sliderValue} 
+                                    onChange={(e) => setSliderValue(parseInt(e.target.value))}
+                                    className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#F04E23] hover:accent-white transition-all"
+                                />
+                            </div>
+                            <button type="submit" className="w-full h-14 bg-white text-black rounded-xl font-bold text-sm uppercase tracking-widest hover:bg-[#F04E23] hover:text-white transition-all flex items-center justify-center gap-2">
+                                <Sliders size={16} /> Lock Frequency
+                            </button>
+                        </form>
                     </div>
                 )}
 
@@ -422,7 +392,7 @@ export default function WaitlistPage() {
                         <ul className="space-y-3">
                             <li className="flex items-start gap-3">
                                 <div className="min-w-4 pt-1"><Swords className="text-[#F04E23]" size={16} /></div>
-                                <span className="text-gray-400 text-sm">Real-time <strong className="text-gray-200">1v1 Debates</strong> on trending news.</span>
+                                <span className="text-gray-400 text-sm">Real-time <strong className="text-gray-200">1v1 Debates</strong> on trending news. </span>
                             </li>
                             <li className="flex items-start gap-3">
                                 <div className="min-w-4 pt-1"><Scale className="text-[#F04E23]" size={16} /></div>
