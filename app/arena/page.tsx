@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, X, Loader2, Brain, Zap, Fingerprint, Trophy, 
   Skull, Clock, TrendingUp, Target, Crown, Shield, MessageSquare, 
-  AlertTriangle, Lock, GripVertical, Eye, Smile, Frown, Search, FileText
+  AlertTriangle, Lock, GripVertical, Eye, Smile, Frown, Search, FileText,
+  Terminal, Code, Hash, Flame, Activity // <--- Added Activity Here
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Logo } from '@/app/components/shared'; 
@@ -38,50 +39,34 @@ const playHaptic = (type: 'good' | 'bad' | 'click') => {
 // --- 1. THE BATTLE DECK ---
 const generateBattleDeck = (): Question[] => {
   const puzzles: Question[] = [
-    // --- 1. OBSERVATION (MEMORY FLASH) ---
+    // ... (Keeping the same puzzle deck as before for brevity) ...
+    { 
+      id: 'cyb_1', type: 'choice', prompt: 'CLOSE THE TAG', 
+      visual: { type: 'code', content: '<div>...?' }, 
+      options: [{ label: '</div>', val: 'correct' }, { label: '<end>', val: 'wrong' }], 
+      answer: 'correct' 
+    },
+    { 
+      id: 'cyb_4', type: 'choice', prompt: 'WHICH IS BLACK?', 
+      visual: { type: 'text', content: '#000 vs #FFF', color: 'text-white' }, 
+      options: [{ label: '#000', val: 'correct' }, { label: '#FFF', val: 'wrong' }], 
+      answer: 'correct' 
+    },
+    { 
+      id: 'abs_1', type: 'choice', prompt: 'COMPLETE PATTERN', 
+      visual: { type: 'text', content: '3, 6, 9, ?', color: 'text-blue-400' }, 
+      options: [{ label: '11', val: 'wrong' }, { label: '12', val: 'correct' }], 
+      answer: 'correct' 
+    },
     { 
       id: 'obs_1', type: 'observation', prompt: 'MEMORIZE SCENE', 
-      visual: { 
-        imageUrl: 'https://images.unsplash.com/photo-1491933382434-500287f9b54b?q=80&w=800&auto=format&fit=crop', 
-        question: 'WAS THERE AN APPLE?' 
-      }, 
-      options: [{ label: 'YES', val: 'correct' }, { label: 'NO', val: 'wrong' }], 
-      answer: 'correct' 
+      visual: { imageUrl: 'https://images.unsplash.com/photo-1491933382434-500287f9b54b?q=80&w=800&auto=format&fit=crop', question: 'WAS THERE AN APPLE?' }, 
+      options: [{ label: 'YES', val: 'correct' }, { label: 'NO', val: 'wrong' }], answer: 'correct' 
     },
-    { 
-      id: 'obs_2', type: 'observation', prompt: 'MEMORIZE SCENE', 
-      visual: { 
-        imageUrl: 'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=800&auto=format&fit=crop', 
-        question: 'HOW MANY CUPS?' 
-      }, 
-      options: [{ label: 'ONE', val: 'wrong' }, { label: 'TWO', val: 'correct' }], 
-      answer: 'correct' 
-    },
-
-    // --- 2. CRIME SCENE ---
-    { 
-      id: 'crime_1', type: 'crime', prompt: 'BREAK THE ALIBI', 
-      visual: { type: 'fact', content: 'FACT: It is raining.' }, 
-      options: [{ label: '"My coat is dry"', val: 'liar' }, { label: '"I used an umbrella"', val: 'truth' }], 
-      answer: 'liar' 
-    },
-    { 
-      id: 'crime_3', type: 'crime', prompt: 'SPOT THE THREAT', 
-      visual: { type: 'grid', items: ['🍎', '🍌', '💣', '🍇'] }, 
-      options: [{ label: 'Bomb', val: 'correct' }, { label: 'Fruit', val: 'wrong' }], 
-      answer: 'correct' 
-    },
-
-    // --- 3. CLASSIC LOGIC ---
-    { id: 'c1', type: 'choice', prompt: 'Tap the COLOR', visual: { type: 'text', content: 'GREEN', color: 'text-red-500', size: 'text-6xl' }, options: [{ label: 'Green', val: 'green' }, { label: 'Red', val: 'red' }], answer: 'red' },
-    { id: 'v1', type: 'choice', prompt: 'Swipe OPPOSITE', visual: { type: 'icon_arrow', dir: 'right' }, options: [{ label: 'Left', val: 'left' }, { label: 'Right', val: 'right' }], answer: 'left' },
-    
-    // --- 4. INTERACTIVE ---
+    { id: 'crime_1', type: 'crime', prompt: 'BREAK THE ALIBI', visual: { type: 'fact', content: 'FACT: It is raining.' }, options: [{ label: '"My coat is dry"', val: 'liar' }, { label: '"I used an umbrella"', val: 'truth' }], answer: 'liar' },
     { id: 'act_m1', type: 'mash', prompt: 'OVERLOAD SYSTEM', visual: { type: 'icon', icon: Zap, color: 'text-yellow-400' }, data: { target: 8 } },
     { id: 'act_s1', type: 'slider', prompt: 'SET TO 75%', visual: { type: 'text', content: '75', color: 'text-white' }, data: { target: 75, tolerance: 5 } },
-    
-    // --- 5. SOCIAL IQ ---
-    { id: 'soc_1', type: 'social', prompt: 'DETECT THE TONE', visual: { type: 'chat', msg: "Fine. Do whatever.", sender: "Partner" }, options: [{ label: 'Happy', val: 'A' }, { label: 'Angry', val: 'B' }], answer: 'B' },
+    { id: 'ord_1', type: 'reorder', prompt: 'SMALLEST TO LARGEST', visual: { type: 'text', content: 'SORT', color: 'text-blue-400' }, data: { items: ['Atom', 'Human', 'Planet'], correct: ['Atom', 'Human', 'Planet'] } },
   ];
 
   return puzzles.sort(() => Math.random() - 0.5).slice(0, 15);
@@ -106,7 +91,7 @@ export default function ArenaPage() {
   const [showSeq, setShowSeq] = useState(false);
   const [reorderList, setReorderList] = useState<string[]>([]);
 
-  // Observation State: 'view' -> 'flash' -> 'quiz'
+  // Observation State
   const [obsPhase, setObsPhase] = useState<'view' | 'flash' | 'quiz'>('view'); 
 
   // Result State
@@ -150,9 +135,9 @@ export default function ArenaPage() {
                 playHaptic('click');
                 const flashTimer = setTimeout(() => {
                     setObsPhase('quiz');
-                }, 500); // 0.5s flash duration
+                }, 500); 
                 return () => clearTimeout(flashTimer);
-            }, 3000); // 3s viewing time
+            }, 3000); 
             return () => clearTimeout(viewTimer);
         }
     }
@@ -238,7 +223,7 @@ export default function ArenaPage() {
     }, 200);
   };
 
-  // Puzzle Specific Handlers
+  // Specific Handlers
   const handleChoice = (val: string) => {
     setSelectedOpt(val);
     if (val === deck[qIndex].answer) handleSuccess(); else handleFail();
@@ -367,7 +352,7 @@ export default function ArenaPage() {
                     
                     {/* --- DYNAMIC PUZZLE RENDERING --- */}
 
-                    {/* 7. OBSERVATION (MEMORY FLASH) - UPDATED: NO EYE, ORANGE SPLASH */}
+                    {/* 1. OBSERVATION (MEMORY FLASH) */}
                     {currentQ.type === 'observation' && (
                         <>
                             {obsPhase === 'view' && (
@@ -378,32 +363,23 @@ export default function ArenaPage() {
                                     <img src={currentQ.visual.imageUrl} alt="Observe" className="w-full h-full object-cover" />
                                     <motion.div 
                                         className="absolute bottom-0 left-0 h-1 bg-white"
-                                        initial={{ width: "100%" }}
-                                        animate={{ width: "0%" }}
+                                        initial={{ width: "100%" }} animate={{ width: "0%" }}
                                         transition={{ duration: 3, ease: "linear" }}
                                     />
                                 </motion.div>
                             )}
-
                             {obsPhase === 'flash' && (
                                 <motion.div 
                                     animate={{ backgroundColor: ["#000", "#F04E23", "#000", "#F04E23"] }}
                                     transition={{ duration: 0.5 }}
                                     className="absolute inset-0 z-20 flex items-center justify-center"
-                                >
-                                    {/* No Icon, just color strobe */}
-                                </motion.div>
+                                />
                             )}
-
                             {obsPhase === 'quiz' && (
                                 <div className="w-full flex flex-col h-full animate-in fade-in zoom-in duration-300">
                                     <div className="flex-grow flex flex-col items-center justify-center mb-6">
-                                        <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mb-4">
-                                            <Brain size={32} className="text-purple-500" />
-                                        </div>
-                                        <h2 className="text-3xl font-black tracking-tighter leading-none break-words max-w-full px-2">
-                                            {currentQ.visual.question}
-                                        </h2>
+                                        <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mb-4"><Brain size={32} className="text-purple-500" /></div>
+                                        <h2 className="text-3xl font-black tracking-tighter leading-none break-words max-w-full px-2">{currentQ.visual.question}</h2>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3 w-full">
                                         {currentQ.options?.map((opt: any, i: number) => (
@@ -415,11 +391,16 @@ export default function ArenaPage() {
                         </>
                     )}
                     
-                    {/* 1. CRIME / SOCIAL / CHOICE (Standard) */}
+                    {/* 2. STANDARD VISUALS (Choice, Crime, Social) */}
                     {(currentQ.type === 'choice' || currentQ.type === 'social' || currentQ.type === 'crime') && (
                         <>
                             <div className="flex-grow flex items-center justify-center w-full">
-                                {currentQ.visual.type === 'trap_size' ? (
+                                {currentQ.visual.type === 'code' ? (
+                                    <div className="bg-black/50 p-6 rounded-lg border border-green-500/30 font-mono text-green-400 text-3xl font-bold shadow-[0_0_20px_rgba(34,197,94,0.1)]">
+                                        <div className="flex items-center gap-2 text-xs text-green-700 mb-2"><Terminal size={12}/> bash</div>
+                                        {currentQ.visual.content}
+                                    </div>
+                                ) : currentQ.visual.type === 'trap_size' ? (
                                     <div className="flex items-end gap-8 scale-125"><span className="text-6xl grayscale">🐁</span><span className="text-3xl grayscale">🐘</span></div>
                                 ) : currentQ.visual.type === 'icon_arrow' ? (
                                     <ArrowRight size={80} className={`text-white transform ${currentQ.visual.dir === 'left' ? 'rotate-180' : ''}`} />
@@ -452,7 +433,7 @@ export default function ArenaPage() {
                         </>
                     )}
 
-                    {/* 2. REORDER (Drag Sim) */}
+                    {/* 3. REORDER (Drag Sim) */}
                     {currentQ.type === 'reorder' && (
                         <div className="flex flex-col items-center justify-center h-full gap-3 w-full">
                             {reorderList.map((item, i) => (
@@ -465,7 +446,7 @@ export default function ArenaPage() {
                         </div>
                     )}
 
-                    {/* 3. MASH */}
+                    {/* 4. MASH */}
                     {currentQ.type === 'mash' && (
                         <div className="flex flex-col items-center justify-center h-full gap-6">
                             <currentQ.visual.icon size={64} className={`${currentQ.visual.color} mb-4`} />
@@ -475,7 +456,7 @@ export default function ArenaPage() {
                         </div>
                     )}
 
-                    {/* 4. SLIDER */}
+                    {/* 5. SLIDER */}
                     {currentQ.type === 'slider' && (
                         <div className="flex flex-col items-center justify-center h-full gap-8 w-full px-4">
                             <div className="text-6xl font-black">{sliderVal}%</div>
@@ -484,7 +465,7 @@ export default function ArenaPage() {
                         </div>
                     )}
 
-                    {/* 5. TOGGLES */}
+                    {/* 6. TOGGLES */}
                     {currentQ.type === 'toggles' && (
                         <div className="flex flex-col items-center justify-center h-full gap-6">
                             <div className="flex gap-4">
@@ -498,7 +479,7 @@ export default function ArenaPage() {
                         </div>
                     )}
 
-                    {/* 6. SEQUENCE */}
+                    {/* 7. SEQUENCE */}
                     {currentQ.type === 'sequence' && (
                         <div className="flex flex-col items-center justify-center h-full gap-6 w-full">
                             <div className="flex gap-3 h-12">
@@ -519,30 +500,113 @@ export default function ArenaPage() {
           </div>
         )}
 
-        {/* --- VIEW 3: WIN SCREEN --- */}
+        {/* --- VIEW 3: JUDGMENT (WIN SCREEN) --- */}
         {view === 'win' && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md text-center bg-[#0F0F0F] p-8 rounded-[2rem] border border-white/10 shadow-[0_0_80px_rgba(240,78,35,0.15)] overflow-hidden">
-                 <div className="relative z-10">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#F04E23]/10 border border-[#F04E23]/30 rounded-full mb-6"><Crown size={14} className="text-[#F04E23]" /><span className="text-[10px] font-black tracking-[0.3em] text-[#F04E23] uppercase">Case Closed</span></div>
-                    <h2 className="text-5xl font-black uppercase tracking-tighter mb-4 text-white leading-none">VERDICT:<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F04E23] to-yellow-500">ABSOLUTE</span></h2>
-                    <div className="bg-[#111] p-5 rounded-2xl border border-white/5 mb-8 text-left">
-                        <div className="flex justify-between items-center mb-2"><span className="text-[10px] font-mono text-gray-500 uppercase">Neural Speed</span><span className="text-xs font-black text-green-500">{avgSpeed}s</span></div>
-                        <p className="text-gray-400 text-sm italic">"You processed logic <span className="text-white font-bold">88% faster</span>. Synaptic response verified."</p>
+            <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }} 
+                animate={{ opacity: 1, scale: 1, y: 0 }} 
+                className="w-full max-w-md text-center bg-[#080808] p-8 rounded-[2.5rem] border border-white/5 shadow-[0_0_100px_rgba(240,78,35,0.1)] relative overflow-hidden"
+            >
+                {/* Decorative Background Watermark */}
+                <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center opacity-[0.03] pointer-events-none">
+                    <span className="text-9xl font-black italic transform -rotate-12 select-none">JUDGE</span>
+                </div>
+
+                <div className="relative z-10">
+                    {/* Status Badge */}
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#F04E23]/10 border border-[#F04E23]/30 rounded-full mb-8 backdrop-blur-md">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#F04E23] animate-pulse" />
+                        <span className="text-[10px] font-black tracking-[0.2em] text-[#F04E23] uppercase">Dominance Verified</span>
                     </div>
+
+                    <h2 className="text-5xl font-black uppercase tracking-tighter mb-2 text-white leading-tight">
+                        VERDICT:<br/>
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-gray-500">ABSOLUTE</span>
+                    </h2>
+
+                    {/* Performance Analysis Card */}
+                    <div className="bg-white/[0.03] backdrop-blur-md p-5 rounded-2xl border border-white/5 mb-8 text-left relative group">
+                        <div className="absolute top-0 right-0 p-3 opacity-20">
+                            <Activity size={16} />
+                        </div>
+                        <div className="flex justify-between items-center mb-3">
+                            <span className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Neural Delta</span>
+                            <span className="text-xs font-black text-green-500">+{stats.correct * 10} IQ</span>
+                        </div>
+                        <p className="text-gray-400 text-sm italic leading-relaxed">
+                            "Subject neutralized. Your synaptic response time of <span className="text-white font-bold">{avgSpeed}s</span> exceeds the 99th percentile."
+                        </p>
+                    </div>
+
+                    {/* FATE SELECTION */}
                     <AnimatePresence mode="wait">
                         {finisherState === 'pending' ? (
-                            <motion.div key="choices" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} className="grid grid-cols-2 gap-3">
-                                <button onClick={() => setFinisherState('roasted')} className="group h-24 bg-black border border-red-900/40 rounded-2xl flex flex-col items-center justify-center hover:border-red-500"><Skull size={20} className="text-red-600 mb-2" /><span className="text-xs font-black text-red-500 uppercase tracking-widest">Roast</span></button>
-                                <button onClick={() => setFinisherState('spared')} className="group h-24 bg-white text-black rounded-2xl flex flex-col items-center justify-center hover:bg-gray-200"><Shield size={20} className="text-black mb-2" /><span className="text-xs font-black uppercase tracking-widest">Spare</span></button>
+                            <motion.div 
+                                key="choices"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="space-y-4"
+                            >
+                                <p className="text-[10px] font-mono text-gray-500 uppercase tracking-[0.3em] mb-4">Determine Opponent's Fate</p>
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                    {/* ROAST (Aggressive) */}
+                                    <button 
+                                        onClick={() => setFinisherState('roasted')}
+                                        className="group relative h-32 bg-black border border-red-900/30 rounded-3xl flex flex-col items-center justify-center transition-all hover:border-red-500 hover:shadow-[0_0_30px_rgba(239,68,68,0.15)]"
+                                    >
+                                        <div className="absolute inset-0 bg-red-500/[0.02] opacity-0 group-hover:opacity-100 rounded-3xl transition-opacity" />
+                                        <Skull size={28} className="text-red-600 mb-2 group-hover:scale-110 group-hover:rotate-12 transition-transform" />
+                                        <span className="text-xs font-black text-red-500 uppercase tracking-widest">Roast</span>
+                                        <span className="text-[8px] text-red-900 font-mono mt-1 group-hover:text-red-500 transition-colors">+20 Infamy</span>
+                                    </button>
+
+                                    {/* SPARE (Noble) */}
+                                    <button 
+                                        onClick={() => setFinisherState('spared')}
+                                        className="group relative h-32 bg-white text-black rounded-3xl flex flex-col items-center justify-center transition-all hover:bg-gray-200 hover:shadow-[0_0_30px_rgba(255,255,255,0.15)]"
+                                    >
+                                        <Shield size={28} className="text-black mb-2 group-hover:scale-110 transition-transform" />
+                                        <span className="text-xs font-black uppercase tracking-widest">Spare</span>
+                                        <span className="text-[8px] text-gray-500 font-mono mt-1 group-hover:text-gray-800 transition-colors">+10 Honor</span>
+                                    </button>
+                                </div>
                             </motion.div>
                         ) : (
-                            <motion.div key="result" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className={`p-6 rounded-2xl border text-left ${finisherState === 'roasted' ? 'bg-red-500/10 border-red-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
-                                <p className="text-white text-sm font-mono italic">{finisherState === 'roasted' ? "\"Switch to coloring books. Logic isn't for you.\"" : "\"Mercy granted. Reputation increased.\""}</p>
-                                <button onClick={() => window.location.reload()} className="w-full mt-6 h-12 bg-white text-black rounded-xl font-bold text-xs uppercase tracking-widest">Hunt Next Victim</button>
+                            <motion.div 
+                                key="result"
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className={`p-6 rounded-3xl border text-left relative overflow-hidden ${
+                                    finisherState === 'roasted' 
+                                    ? 'bg-red-500/5 border-red-500/20' 
+                                    : 'bg-green-500/5 border-green-500/20'
+                                }`}
+                            >
+                                <div className={`flex items-center gap-2 mb-3 ${finisherState === 'roasted' ? 'text-red-500' : 'text-green-500'}`}>
+                                    {finisherState === 'roasted' ? <MessageSquare size={14}/> : <Shield size={14}/>}
+                                    <span className="text-[10px] font-black uppercase tracking-widest">
+                                        {finisherState === 'roasted' ? 'Transmission Logged' : 'Reputation Enhanced'}
+                                    </span>
+                                </div>
+                                
+                                <p className="text-white text-sm font-mono leading-relaxed italic">
+                                    {finisherState === 'roasted' 
+                                        ? "\"Transmission sent: 'Switch to coloring books. Logic is clearly not your primary function.' Infamy increased.\"" 
+                                        : "\"You granted mercy. Your standing as a Master Architect has been broadcast to the network.\""}
+                                </p>
+
+                                <button 
+                                    onClick={() => window.location.reload()} 
+                                    className="w-full mt-6 h-14 bg-white text-black rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-[#F04E23] hover:text-white transition-colors flex items-center justify-center gap-2"
+                                >
+                                    Next Victim <ArrowRight size={14} />
+                                </button>
                             </motion.div>
                         )}
                     </AnimatePresence>
-                 </div>
+                </div>
             </motion.div>
         )}
 
