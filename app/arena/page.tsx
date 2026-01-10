@@ -32,7 +32,7 @@ const triggerHaptic = (type: string) => {
     }
 };
 
-const SOCKET_URL = 'http://localhost:3001'; 
+const SOCKET_URL = 'http://103.195.6.231:3001';
 
 export default function ArenaPage() {
   const [socket, setSocket] = useState<Socket | null>(null);
