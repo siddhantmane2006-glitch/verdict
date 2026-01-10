@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, Loader2, Brain, Zap, Crown, 
-  Skull, Shield, MessageCircle, Eye, AlertOctagon, Sparkles, X, Check, Smartphone
+  Skull, Shield, Mail, Eye, Ghost, Lock, Smartphone
 } from 'lucide-react';
 import io, { Socket } from 'socket.io-client';
 
@@ -17,12 +17,12 @@ interface Question {
   category: PuzzleCategory;
   difficulty: 'MEDIUM' | 'HARD';
   prompt: string; 
-  visualContent?: React.ReactNode; 
+  visualContent?: React.ReactNode; // For non-text visuals
   options: { label: string; val: string }[];
   answer: string; 
 }
 
-// --- MOCK DATA ---
+// --- NEW "FUN & SMART" MOCK DECK ---
 const FALLBACK_DECK: Question[] = [
   {
     id: 'q1',
@@ -30,7 +30,7 @@ const FALLBACK_DECK: Question[] = [
     difficulty: 'MEDIUM',
     prompt: 'You receive this text from "CEO_Mike". What gives it away as a scam?',
     visualContent: (
-      <div className="bg-gray-100 p-4 rounded-xl text-black font-sans text-sm mb-4 border-l-4 border-red-500 w-full text-left">
+      <div className="bg-gray-100 p-4 rounded-xl text-black font-sans text-sm mb-4 border-l-4 border-red-500 w-full">
         <div className="flex items-center gap-2 mb-2 text-gray-500 text-xs uppercase font-bold">
           <Smartphone size={12} /> iMessage
         </div>
@@ -61,7 +61,7 @@ const FALLBACK_DECK: Question[] = [
         { label: 'Himself', val: 'c' }, 
         { label: 'His Nephew', val: 'd' }
     ],
-    answer: 'a' 
+    answer: 'a' // "My father's son" = Me. "That man's father is ME." Therefore, that man is my son.
   },
   {
     id: 'q3',
@@ -80,11 +80,12 @@ const FALLBACK_DECK: Question[] = [
       </div>
     ),
     options: [
-        { label: '⭐⭐⭐⭐', val: 'a' }, 
+        { label: '⭐⭐⭐⭐', val: 'a' }, // Too obvious?
         { label: '🌟', val: 'b' }, 
         { label: '💠', val: 'c' }, 
         { label: '4', val: 'd' }
     ],
+    // Actually let's make it trickier in real data, but for now simple visual pattern
     answer: 'a' 
   }
 ];
@@ -110,7 +111,7 @@ export default function ArenaPage() {
   const [qIndex, setQIndex] = useState(0);
   
   // Interaction State
-  const [lastResult, setLastResult] = useState<'correct' | 'wrong' | null>(null); 
+  const [lastResult, setLastResult] = useState<'correct' | 'wrong' | null>(null); // For instant flash feedback
   
   // Game Stats
   const [tugValue, setTugValue] = useState(50);
@@ -128,7 +129,7 @@ export default function ArenaPage() {
     newSocket.on('match_found', (data) => {
         setRoomId(data.roomId);
         setMyRole(data.role); 
-        if (data.deck && data.deck.length > 0) setDeck(data.deck);
+        // In real prod, enable this: if (data.deck && data.deck.length > 0) setDeck(data.deck);
         setView('playing');
         questionStartTime.current = Date.now();
     });
@@ -159,9 +160,11 @@ export default function ArenaPage() {
     const currentQ = deck[qIndex];
     const isCorrect = val === currentQ.answer;
     
+    // 1. Instant UI Feedback
     setLastResult(isCorrect ? 'correct' : 'wrong');
     triggerHaptic(isCorrect ? 'success' : 'heavy');
 
+    // 2. Logic Update
     if (isCorrect) {
         const speed = Date.now() - questionStartTime.current;
         setStats(p => ({ ...p, correct: p.correct + 1, total: p.total + 1 }));
@@ -173,11 +176,12 @@ export default function ArenaPage() {
         if (socket && roomId) socket.emit('submit_fail', { roomId });
     }
 
+    // 3. Next Question Delay (Allow user to see the result flash)
     setTimeout(() => {
         setLastResult(null);
         setQIndex(prev => (prev + 1) % deck.length);
         questionStartTime.current = Date.now();
-    }, 600); 
+    }, 600); // 600ms delay to read feedback
   };
 
   const visualTug = myRole === 'p2' ? (100 - tugValue) : tugValue;
@@ -266,8 +270,12 @@ export default function ArenaPage() {
 
                         <div className="bg-[#0A0A0A] border border-white/10 p-6 rounded-3xl shadow-2xl relative overflow-hidden min-h-[400px] flex flex-col">
                             
-                            {/* Header (Capsule Removed) */}
-                            <div className="flex justify-end items-center mb-6">
+                            {/* Header */}
+                            <div className="flex justify-between items-center mb-6">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/5">
+                                    <span className="text-sm">{currentQ.emoji}</span>
+                                    <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">{currentQ.category}</span>
+                                </div>
                                 <span className="text-[10px] font-mono text-gray-600 uppercase">Diff: {currentQ.difficulty}</span>
                             </div>
 
@@ -284,7 +292,7 @@ export default function ArenaPage() {
                                 {currentQ.options.map((opt, i) => (
                                     <button 
                                         key={i} 
-                                        onClick={() => !lastResult && handleAnswer(opt.val)} 
+                                        onClick={() => !lastResult && handleAnswer(opt.val)} // Prevent double clicks
                                         className="group relative w-full p-4 bg-[#111] hover:bg-white border border-white/10 hover:border-white rounded-xl text-left transition-all duration-150 active:scale-[0.98]"
                                     >
                                         <div className="flex items-center justify-between">
