@@ -3,30 +3,97 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  ArrowRight, Loader2, Brain, Zap, Fingerprint, Crown, 
-  Skull, Shield, MessageSquare, AlertTriangle, Search, 
-  Terminal, Activity, Smartphone, Box
+  ArrowRight, Loader2, Brain, Zap, Crown, 
+  Skull, Shield, Mail, Eye, Ghost, Lock, Smartphone
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
 import io, { Socket } from 'socket.io-client';
 
 // --- TYPES ---
 type GameState = 'matching' | 'playing' | 'victory_splash' | 'defeat_glitch' | 'win' | 'loss';
-type PuzzleType = 'logic' | 'observation' | 'crime' | 'social';
+type PuzzleCategory = 'STREET SMARTS' | 'LATERAL THINKING' | 'ABSTRACT LOGIC';
 
 interface Question {
   id: string;
-  type: PuzzleType;
-  prompt: string;
-  visual: any; 
+  category: PuzzleCategory;
+  difficulty: 'MEDIUM' | 'HARD';
+  prompt: string; 
+  visualContent?: React.ReactNode; // For non-text visuals
   options: { label: string; val: string }[];
   answer: string; 
 }
 
+// --- NEW "FUN & SMART" MOCK DECK ---
+const FALLBACK_DECK: Question[] = [
+  {
+    id: 'q1',
+    category: 'STREET SMARTS',
+    difficulty: 'MEDIUM',
+    prompt: 'You receive this text from "CEO_Mike". What gives it away as a scam?',
+    visualContent: (
+      <div className="bg-gray-100 p-4 rounded-xl text-black font-sans text-sm mb-4 border-l-4 border-red-500 w-full">
+        <div className="flex items-center gap-2 mb-2 text-gray-500 text-xs uppercase font-bold">
+          <Smartphone size={12} /> iMessage
+        </div>
+        "Hey, I'm in a meeting and can't talk. Need you to buy 5x $100 Gift Cards for a client bonus ASAP. Will reimburse. Confidential."
+      </div>
+    ),
+    options: [
+        { label: 'The grammar is too perfect', val: 'a' }, 
+        { label: 'CEOs don\'t use text', val: 'b' }, 
+        { label: 'Urgency + Gift Cards = Scam', val: 'c' }, 
+        { label: 'It is actually legit', val: 'd' }
+    ],
+    answer: 'c'
+  },
+  {
+    id: 'q2',
+    category: 'LATERAL THINKING',
+    difficulty: 'HARD',
+    prompt: 'A man is looking at a photograph of someone. His friend asks who it is. The man replies:',
+    visualContent: (
+      <div className="text-[#F04E23] font-mono text-lg md:text-xl font-bold italic mb-6 text-center">
+        "Brothers and sisters, I have none.<br/>But that man's father is my father's son."
+      </div>
+    ),
+    options: [
+        { label: 'His Son', val: 'a' }, 
+        { label: 'His Father', val: 'b' }, 
+        { label: 'Himself', val: 'c' }, 
+        { label: 'His Nephew', val: 'd' }
+    ],
+    answer: 'a' // "My father's son" = Me. "That man's father is ME." Therefore, that man is my son.
+  },
+  {
+    id: 'q3',
+    category: 'ABSTRACT LOGIC',
+    difficulty: 'HARD',
+    prompt: 'Which symbol completes the sequence?',
+    visualContent: (
+      <div className="flex gap-4 mb-6 text-4xl font-black text-white justify-center items-center">
+        <span>⭐</span>
+        <ArrowRight size={20} className="text-gray-600"/>
+        <span>⭐⭐</span>
+        <ArrowRight size={20} className="text-gray-600"/>
+        <span>⭐⭐⭐</span>
+        <ArrowRight size={20} className="text-gray-600"/>
+        <div className="w-12 h-12 border-2 border-dashed border-[#F04E23] rounded flex items-center justify-center text-xl text-[#F04E23]">?</div>
+      </div>
+    ),
+    options: [
+        { label: '⭐⭐⭐⭐', val: 'a' }, // Too obvious?
+        { label: '🌟', val: 'b' }, 
+        { label: '💠', val: 'c' }, 
+        { label: '4', val: 'd' }
+    ],
+    // Actually let's make it trickier in real data, but for now simple visual pattern
+    answer: 'a' 
+  }
+];
+
 // --- UTILS ---
-const triggerHaptic = (type: string) => { 
+const triggerHaptic = (type: 'heavy' | 'success' | 'light') => { 
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        if (type === 'heavy') navigator.vibrate(30);
+        if (type === 'heavy') navigator.vibrate(50);
         else if (type === 'success') navigator.vibrate([10, 30, 20]);
         else navigator.vibrate(10);
     }
@@ -40,18 +107,16 @@ export default function ArenaPage() {
   const [myRole, setMyRole] = useState<'p1' | 'p2' | null>(null);
 
   const [view, setView] = useState<GameState>('matching');
-  const [deck, setDeck] = useState<Question[]>([]); 
+  const [deck, setDeck] = useState<Question[]>(FALLBACK_DECK); 
   const [qIndex, setQIndex] = useState(0);
+  
+  // Interaction State
+  const [lastResult, setLastResult] = useState<'correct' | 'wrong' | null>(null); // For instant flash feedback
   
   // Game Stats
   const [tugValue, setTugValue] = useState(50);
   const [timeLeft, setTimeLeft] = useState(60);
-  const [combo, setCombo] = useState(0);
-  const [stats, setStats] = useState({ correct: 0, total: 0, speedSum: 0 });
-  
-  // Interaction State
-  const [obsPhase, setObsPhase] = useState<'view' | 'flash' | 'quiz'>('view'); 
-  const [finisherState, setFinisherState] = useState<'pending' | 'roasted' | 'spared'>('pending');
+  const [stats, setStats] = useState({ correct: 0, total: 0 });
   
   const questionStartTime = useRef<number>(0);
 
@@ -64,7 +129,7 @@ export default function ArenaPage() {
     newSocket.on('match_found', (data) => {
         setRoomId(data.roomId);
         setMyRole(data.role); 
-        setDeck(data.deck); 
+        // In real prod, enable this: if (data.deck && data.deck.length > 0) setDeck(data.deck);
         setView('playing');
         questionStartTime.current = Date.now();
     });
@@ -90,245 +155,203 @@ export default function ArenaPage() {
     return () => { newSocket.disconnect(); };
   }, []);
 
-  // --- RESET STATE ---
-  useEffect(() => {
-    const currentQ = deck[qIndex];
-    if (currentQ) {
-        if (currentQ.type === 'observation') {
-            setObsPhase('view');
-            setTimeout(() => {
-                setObsPhase('flash');
-                triggerHaptic('heavy');
-                setTimeout(() => setObsPhase('quiz'), 500);
-            }, 3000); 
-        }
-    }
-  }, [qIndex, deck]);
-
   // --- HANDLERS ---
   const handleAnswer = (val: string) => {
     const currentQ = deck[qIndex];
     const isCorrect = val === currentQ.answer;
     
+    // 1. Instant UI Feedback
+    setLastResult(isCorrect ? 'correct' : 'wrong');
+    triggerHaptic(isCorrect ? 'success' : 'heavy');
+
+    // 2. Logic Update
     if (isCorrect) {
         const speed = Date.now() - questionStartTime.current;
-        triggerHaptic('success');
-        setCombo(c => c + 1);
-        setStats(p => ({ ...p, correct: p.correct + 1, speedSum: p.speedSum + speed }));
+        setStats(p => ({ ...p, correct: p.correct + 1, total: p.total + 1 }));
+        setTugValue(prev => myRole === 'p2' ? prev - 10 : prev + 10); 
         if (socket && roomId) socket.emit('submit_success', { roomId, timeTaken: speed });
     } else {
-        triggerHaptic('heavy');
-        setCombo(0);
         setStats(p => ({ ...p, total: p.total + 1 }));
+        setTugValue(prev => myRole === 'p2' ? prev + 10 : prev - 10);
         if (socket && roomId) socket.emit('submit_fail', { roomId });
     }
 
+    // 3. Next Question Delay (Allow user to see the result flash)
     setTimeout(() => {
+        setLastResult(null);
         setQIndex(prev => (prev + 1) % deck.length);
         questionStartTime.current = Date.now();
-    }, 150);
+    }, 600); // 600ms delay to read feedback
   };
 
-  // Mirror Logic: If I am P2, 0 is winning. So I visualize 100-val.
   const visualTug = myRole === 'p2' ? (100 - tugValue) : tugValue;
   const currentQ = deck[qIndex];
-  const avgSpeed = stats.total > 0 ? (stats.speedSum / Math.max(stats.total, 1) / 1000).toFixed(2) : "0.00";
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-[#F04E23] flex flex-col relative overflow-hidden select-none">
       
-      {/* BG */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: `linear-gradient(#fff 1px, transparent 1px), linear-gradient(to right, #fff 1px, transparent 1px)`, backgroundSize: '40px 40px' }}></div>
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050505]/50 to-[#050505] pointer-events-none"></div>
+      {/* Background */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#111] via-[#050505] to-[#000]"></div>
+      <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: `linear-gradient(#fff 1px, transparent 1px), linear-gradient(to right, #fff 1px, transparent 1px)`, backgroundSize: '40px 40px' }}></div>
 
-      {/* --- MAIN CONTAINER (Added this tag to fix the error) --- */}
-      <main className="flex-grow flex flex-col items-center justify-center px-4 md:px-6 relative z-10 w-full max-w-2xl mx-auto py-8">
+      <main className="flex-grow flex flex-col items-center justify-center px-4 relative z-10 w-full max-w-xl mx-auto py-6">
 
         {/* --- MATCHMAKING --- */}
         {view === 'matching' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center flex flex-col h-screen items-center justify-center">
-                <div className="mb-8 scale-125 relative">
-                    <div className="absolute -inset-6 border border-[#F04E23]/60 rounded-full animate-ping opacity-75"></div>
-                    {/* Placeholder Logo if component missing */}
-                    <div className="flex items-center gap-2 font-black text-3xl tracking-tighter">
-                        <Box className="text-[#F04E23]" size={32} /> VERDICT
+                <div className="relative mb-8">
+                    <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center border border-white/10">
+                        <Zap className="text-[#F04E23] animate-pulse" size={40} />
                     </div>
+                    <motion.div 
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                        className="absolute -inset-4 border-t-2 border-[#F04E23] rounded-full opacity-50"
+                    />
                 </div>
-                <div className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs font-mono text-gray-400 uppercase tracking-widest backdrop-blur-md">
-                    <Loader2 size={12} className="animate-spin text-[#F04E23]"/> Scanning Arena...
-                </div>
+                <h2 className="text-2xl font-black tracking-tighter mb-2">SCANNING ARENA</h2>
+                <p className="text-sm text-gray-500 font-mono">Searching for worthy opponent...</p>
             </motion.div>
         )}
 
         {/* --- PLAYING --- */}
         {view === 'playing' && currentQ && (
-            <div className="w-full h-screen flex flex-col justify-between pb-8 pt-4 relative">
+            <div className="w-full h-full flex flex-col justify-between">
                 
-                {/* TUG OF WAR BAR */}
-                <div className="w-full px-2 mb-4">
-                    <div className="w-full h-4 bg-[#111] rounded-full overflow-hidden relative border border-white/5">
+                {/* HUD */}
+                <div className="w-full mb-6">
+                    <div className="flex justify-between items-end mb-2 px-2">
+                        <div className="flex items-center gap-2">
+                            <Skull size={16} className="text-red-500"/>
+                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Enemy</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-[#F04E23] uppercase tracking-widest">You</span>
+                            <Crown size={16} className="text-[#F04E23]"/>
+                        </div>
+                    </div>
+                    
+                    {/* TUG BAR */}
+                    <div className="h-4 w-full bg-[#111] rounded-full overflow-hidden relative border border-white/10 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]">
                         <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/20 z-20"></div>
                         <motion.div 
-                            className="h-full bg-[#F04E23]" 
-                            animate={{ width: `${visualTug}%`, boxShadow: visualTug > 70 ? "0 0 30px #F04E23" : "0 0 0px #000" }} 
-                            transition={{ type: 'tween', ease: 'linear', duration: 0.1 }}
+                            className="h-full bg-gradient-to-r from-red-600 via-[#F04E23] to-orange-400 shadow-[0_0_15px_#F04E23]" 
+                            animate={{ width: `${visualTug}%` }} 
+                            transition={{ type: 'spring', stiffness: 200, damping: 20 }}
                         />
+                    </div>
+                    
+                    <div className="text-center mt-4 font-mono text-4xl font-black text-white/90 tracking-tighter">
+                        {timeLeft}<span className="text-sm text-white/30 ml-1">s</span>
                     </div>
                 </div>
 
-                {/* HEADER */}
-                <header className="flex justify-between items-center px-2">
-                    <div className="flex items-center gap-3 opacity-70"><Skull size={18} className="text-gray-400" /><div className="hidden md:block font-bold text-gray-500 uppercase text-[10px]">ENEMY</div></div>
-                    <div className="flex flex-col items-center justify-center w-14 h-14 bg-[#111] rounded-xl border border-white/10"><span className={`text-xl font-black ${timeLeft < 10 ? 'text-red-500' : 'text-white'}`}>{timeLeft}</span></div>
-                    <div className="flex items-center gap-3"><div className="hidden md:block text-right font-bold text-gray-500 uppercase text-[10px]">You</div><Fingerprint size={18} className="text-[#F04E23]" /></div>
-                </header>
-
-                {/* PUZZLE AREA */}
-                <div className="flex-grow flex items-center justify-center px-4 relative z-10">
+                {/* CARD AREA */}
                 <AnimatePresence mode="wait">
                     <motion.div 
                         key={currentQ.id}
-                        initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }}
-                        className="w-full bg-[#0F0F0F] border border-white/10 p-6 rounded-3xl shadow-2xl relative min-h-[350px] flex flex-col items-center justify-center text-center overflow-hidden"
+                        initial={{ scale: 0.95, opacity: 0 }} 
+                        animate={{ scale: 1, opacity: 1 }} 
+                        exit={{ scale: 1.05, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="w-full flex-grow flex flex-col justify-center relative"
                     >
-                        <div className="absolute top-4 z-10">
-                            <span className={`text-[10px] font-mono font-bold uppercase tracking-widest border px-3 py-1 rounded-full border-white/10 text-gray-400 bg-white/5`}>
-                                {currentQ.type === 'observation' && obsPhase !== 'quiz' ? 'OBSERVE!' : currentQ.prompt}
-                            </span>
-                        </div>
-                        
-                        {/* --- DYNAMIC RENDERER --- */}
-                        
-                        {/* 1. OBSERVATION */}
-                        {currentQ.type === 'observation' && (
-                            <>
-                                {obsPhase === 'view' && (
-                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-64 relative rounded-xl overflow-hidden mb-4">
-                                        <img src={currentQ.visual.imageUrl} alt="Observe" className="w-full h-full object-cover" />
-                                        <motion.div className="absolute bottom-0 left-0 h-1 bg-white" initial={{ width: "100%" }} animate={{ width: "0%" }} transition={{ duration: 3, ease: "linear" }} />
-                                    </motion.div>
-                                )}
-                                {obsPhase === 'flash' && <motion.div animate={{ backgroundColor: ["#000", "#F04E23", "#000", "#F04E23"] }} transition={{ duration: 0.5 }} className="absolute inset-0 z-20 flex items-center justify-center"/>}
-                                {obsPhase === 'quiz' && (
-                                    <div className="w-full flex flex-col h-full animate-in fade-in zoom-in duration-300">
-                                        <div className="flex-grow flex flex-col items-center justify-center mb-6">
-                                            <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mb-4"><Brain size={32} className="text-purple-500" /></div>
-                                            <h2 className="text-3xl font-black tracking-tighter leading-none break-words max-w-full px-2">{currentQ.visual.question}</h2>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-3 w-full">
-                                            {currentQ.options?.map((opt: any, i: number) => (
-                                                <button key={i} onClick={() => handleAnswer(opt.val)} className="h-20 bg-white/5 border border-white/10 rounded-2xl font-bold uppercase text-lg hover:bg-white hover:text-black transition-all">{opt.label}</button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                        
-                        {/* 2. GENERAL INTELLIGENCE */}
-                        {(currentQ.type === 'logic' || currentQ.type === 'social' || currentQ.type === 'crime') && (
-                            <>
-                                <div className="flex-grow flex items-center justify-center w-full mb-4">
-                                    {currentQ.visual.type === 'chat' ? (
-                                        <div className="bg-[#222] p-6 rounded-tl-xl rounded-tr-xl rounded-br-xl rounded-bl-none text-left max-w-[90%] border border-white/10 relative w-full">
-                                            <div className="flex items-center gap-2 mb-2 text-xs text-gray-500"><Smartphone size={14}/> {currentQ.visual.sender}</div>
-                                            <p className="text-lg font-medium">"{currentQ.visual.msg}"</p>
-                                        </div>
-                                    ) : currentQ.visual.type === 'fact' ? (
-                                        <div className="bg-yellow-500/10 border border-yellow-500/30 p-6 rounded-xl w-full">
-                                            <div className="flex items-center gap-2 mb-2 text-yellow-500"><Search size={16} /><span className="text-xs font-black uppercase">Riddle</span></div>
-                                            <p className="text-xl font-bold text-white font-mono">{currentQ.visual.content}</p>
-                                        </div>
-                                    ) : (
-                                        <div className={`text-center ${currentQ.visual.color || 'text-white'}`}>
-                                            <div className={`${currentQ.visual.size || 'text-5xl'} font-black tracking-tighter`}>{currentQ.visual.content}</div>
-                                        </div>
-                                    )}
+                        {/* RESULT OVERLAY FLASH */}
+                        {lastResult && (
+                            <motion.div 
+                                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                className={`absolute inset-0 z-50 flex items-center justify-center rounded-3xl backdrop-blur-md ${lastResult === 'correct' ? 'bg-green-500/20' : 'bg-red-500/20'}`}
+                            >
+                                <div className={`text-5xl font-black italic tracking-tighter ${lastResult === 'correct' ? 'text-green-500' : 'text-red-500'}`}>
+                                    {lastResult === 'correct' ? 'NICE!' : 'NOPE'}
                                 </div>
-                                
-                                {/* Universal Buttons */}
-                                <div className="grid grid-cols-2 gap-3 w-full">
-                                    {currentQ.options?.map((opt: any, i: number) => (
-                                        <button key={i} onClick={() => handleAnswer(opt.val)} className="h-24 bg-white/5 border border-white/10 rounded-2xl font-black uppercase text-xl hover:bg-white hover:text-black transition-all">
-                                            {opt.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </>
+                            </motion.div>
                         )}
 
+                        <div className="bg-[#0A0A0A] border border-white/10 p-6 rounded-3xl shadow-2xl relative overflow-hidden min-h-[400px] flex flex-col">
+                            
+                            {/* Header */}
+                            <div className="flex justify-between items-center mb-6">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/5">
+                                    <span className="text-sm">{currentQ.emoji}</span>
+                                    <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">{currentQ.category}</span>
+                                </div>
+                                <span className="text-[10px] font-mono text-gray-600 uppercase">Diff: {currentQ.difficulty}</span>
+                            </div>
+
+                            {/* Prompt & Visual */}
+                            <div className="flex-grow flex flex-col justify-center items-center text-center mb-8">
+                                <h2 className="text-2xl font-bold leading-tight mb-6 text-white">
+                                    {currentQ.prompt}
+                                </h2>
+                                {currentQ.visualContent}
+                            </div>
+
+                            {/* Options */}
+                            <div className="grid grid-cols-1 gap-3">
+                                {currentQ.options.map((opt, i) => (
+                                    <button 
+                                        key={i} 
+                                        onClick={() => !lastResult && handleAnswer(opt.val)} // Prevent double clicks
+                                        className="group relative w-full p-4 bg-[#111] hover:bg-white border border-white/10 hover:border-white rounded-xl text-left transition-all duration-150 active:scale-[0.98]"
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <span className="font-bold text-gray-400 group-hover:text-black text-lg transition-colors">{opt.label}</span>
+                                            <div className="w-6 h-6 rounded-full border border-white/20 group-hover:border-black/20 flex items-center justify-center">
+                                                <ArrowRight size={14} className="text-white group-hover:text-black" />
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </motion.div>
                 </AnimatePresence>
-                </div>
             </div>
         )}
 
-        {/* --- VICTORY SPLASH --- */}
+        {/* --- VICTORY SCREEN --- */}
         <AnimatePresence>
             {view === 'victory_splash' && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black px-4 overflow-hidden">
-                    <motion.div animate={{ backgroundColor: ["#000", "#F04E23", "#000", "#F04E23", "#F04E23"] }} transition={{ duration: 0.5 }} className="absolute inset-0"/>
-                    <motion.div initial={{ scale: 2 }} animate={{ scale: 1 }} className="relative z-10 text-center mix-blend-hard-light w-full">
-                        <h1 className="text-6xl md:text-9xl font-black uppercase tracking-tighter text-black leading-none break-words">VERDICT</h1>
-                        <div className="bg-black text-[#F04E23] text-xl md:text-3xl font-mono font-bold px-6 py-2 inline-block transform -skew-x-12 mt-4">DELIVERED</div>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#050505]">
+                    <motion.div initial={{ scale: 0.5 }} animate={{ scale: 1 }} className="text-center">
+                        <Crown size={80} className="text-[#F04E23] mx-auto mb-4 drop-shadow-[0_0_30px_rgba(240,78,35,0.6)]" />
+                        <h1 className="text-7xl font-black italic tracking-tighter text-white">GENIUS</h1>
+                        <p className="text-gray-400 font-mono mt-4 tracking-widest uppercase text-xs">Dominance Established</p>
                     </motion.div>
                 </motion.div>
             )}
         </AnimatePresence>
 
-        {/* --- DEFEAT CRASH --- */}
-        <AnimatePresence>
-            {view === 'defeat_glitch' && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black px-4 overflow-hidden">
-                    <motion.div animate={{ x: [-20, 20, -15, 15, 0], backgroundColor: ["#000", "#ef4444", "#000"] }} transition={{ duration: 0.4 }} className="absolute inset-0 opacity-20"/>
-                    <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1.1 }} className="relative z-10 text-center w-full">
-                        <AlertTriangle size={60} className="text-red-500 mx-auto mb-6 animate-pulse" />
-                        <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter text-red-500 leading-none break-words">OVERRULED</h1>
-                        <div className="mt-4 font-mono text-red-400 tracking-[0.5em] text-xs">SYSTEM FAILURE</div>
-                    </motion.div>
-                </motion.div>
-            )}
-        </AnimatePresence>
-
-        {/* --- WIN SCREEN --- */}
-        {view === 'win' && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="absolute inset-0 z-40 flex items-center justify-center p-4 bg-black/90">
-                <div className="w-full max-w-md text-center bg-[#0F0F0F] p-8 rounded-[2rem] border border-white/10 shadow-[0_0_80px_rgba(240,78,35,0.15)] overflow-hidden">
-                    <div className="relative z-10">
-                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#F04E23]/10 border border-[#F04E23]/30 rounded-full mb-6"><Crown size={14} className="text-[#F04E23]" /><span className="text-[10px] font-black tracking-[0.3em] text-[#F04E23] uppercase">Case Closed</span></div>
-                        <h2 className="text-5xl font-black uppercase tracking-tighter mb-4 text-white leading-none">VERDICT:<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F04E23] to-yellow-500">ABSOLUTE</span></h2>
-                        <div className="bg-[#111] p-5 rounded-2xl border border-white/5 mb-8 text-left">
-                            <div className="flex justify-between items-center mb-2"><span className="text-[10px] font-mono text-gray-500 uppercase">Neural Speed</span><span className="text-xs font-black text-green-500">{avgSpeed}s</span></div>
-                            <p className="text-gray-400 text-sm italic">"You processed logic <span className="text-white font-bold">88% faster</span>. Synaptic response verified."</p>
+        {/* --- WIN / LOSS FINAL --- */}
+        {(view === 'win' || view === 'loss') && (
+            <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} className="absolute inset-0 z-40 flex items-center justify-center p-4 bg-black/95">
+                <div className="w-full max-w-sm text-center">
+                    <div className={`w-24 h-24 rounded-full mx-auto mb-6 flex items-center justify-center border-4 ${view === 'win' ? 'border-[#F04E23] bg-[#F04E23]/10' : 'border-gray-700 bg-gray-800'}`}>
+                        {view === 'win' ? <Crown size={40} className="text-[#F04E23]" /> : <Skull size={40} className="text-gray-500" />}
+                    </div>
+                    
+                    <h2 className="text-4xl font-black uppercase tracking-tight mb-2 text-white">
+                        {view === 'win' ? 'Victory' : 'Defeated'}
+                    </h2>
+                    
+                    <div className="flex justify-center gap-8 my-8 bg-white/5 p-6 rounded-2xl border border-white/10">
+                        <div className="text-center">
+                            <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Score</p>
+                            <p className="text-2xl font-black text-white">{stats.correct}/{stats.total}</p>
                         </div>
-                        <AnimatePresence mode="wait">
-                            {finisherState === 'pending' ? (
-                                <motion.div key="choices" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} className="grid grid-cols-2 gap-3">
-                                    <button onClick={() => setFinisherState('roasted')} className="group h-24 bg-black border border-red-900/40 rounded-2xl flex flex-col items-center justify-center hover:border-red-500"><Skull size={20} className="text-red-600 mb-2" /><span className="text-xs font-black text-red-500 uppercase tracking-widest">Roast</span></button>
-                                    <button onClick={() => setFinisherState('spared')} className="group h-24 bg-white text-black rounded-2xl flex flex-col items-center justify-center hover:bg-gray-200"><Shield size={20} className="text-black mb-2" /><span className="text-xs font-black uppercase tracking-widest">Spare</span></button>
-                                </motion.div>
-                            ) : (
-                                <motion.div key="result" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className={`p-6 rounded-2xl border text-left ${finisherState === 'roasted' ? 'bg-red-500/10 border-red-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
-                                    <p className="text-white text-sm font-mono italic">{finisherState === 'roasted' ? "\"Switch to coloring books. Logic isn't for you.\"" : "\"Mercy granted. Reputation increased.\""}</p>
-                                    <button onClick={() => window.location.reload()} className="w-full mt-6 h-12 bg-white text-black rounded-xl font-bold text-xs uppercase tracking-widest">Hunt Next Victim</button>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                        <div className="w-px bg-white/10"></div>
+                        <div className="text-center">
+                            <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Elo</p>
+                            <p className={`text-2xl font-black ${view === 'win' ? 'text-green-500' : 'text-red-500'}`}>
+                                {view === 'win' ? '+24' : '-18'}
+                            </p>
+                        </div>
                     </div>
-                </div>
-            </motion.div>
-        )}
 
-        {/* --- LOSS SCREEN --- */}
-        {view === 'loss' && (
-            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="absolute inset-0 z-40 flex items-center justify-center p-4 bg-black/90">
-                <div className="text-center max-w-md bg-[#0F0F0F] p-8 rounded-3xl border border-white/10 w-full">
-                    <Brain size={40} className="text-gray-500 mx-auto mb-6" />
-                    <h2 className="text-4xl font-black uppercase tracking-tight mb-2 text-white">CALCULATION<br/>ERROR</h2>
-                    <div className="mb-8 mt-6 p-4 border-l-2 border-[#F04E23] bg-[#F04E23]/5 rounded-r-lg text-left">
-                        <p className="text-gray-300 text-sm italic">"Your logic was sound, but reaction time lagged. <strong className="text-white">Prove it was a fluke.</strong>"</p>
-                    </div>
-                    <button onClick={() => window.location.reload()} className="w-full h-14 bg-[#111] hover:bg-white hover:text-black border border-white/20 rounded-xl font-bold text-sm uppercase tracking-widest transition-all text-white flex items-center justify-center gap-2">Redeem Honor <ArrowRight size={16}/></button>
+                    <button onClick={() => window.location.reload()} className="w-full h-14 bg-white hover:bg-gray-200 text-black rounded-xl font-bold text-sm uppercase tracking-widest transition-all">
+                        Find New Match
+                    </button>
                 </div>
             </motion.div>
         )}
